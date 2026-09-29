@@ -8,7 +8,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Eye,
   Flag,
   Play,
   RotateCcw,
@@ -27,6 +26,7 @@ interface GoControlsProps {
   // Heatmap Controls Props
   heatmapMode?: HeatmapMode;
   onToggleHeatmap?: () => void;
+  onSelectHeatmapMode?: (mode: HeatmapMode) => void;
 
   // Replay & Step Navigation Props
   reviewStep?: number | null;
@@ -48,6 +48,7 @@ export const GoControls: React.FC<GoControlsProps> = ({
   className = '',
   heatmapMode = 'none',
   onToggleHeatmap,
+  onSelectHeatmapMode,
   reviewStep = null,
   isReviewing = false,
   onStepPrev,
@@ -61,6 +62,15 @@ export const GoControls: React.FC<GoControlsProps> = ({
   const currentStepNum = reviewStep === null ? totalMoves : reviewStep;
   const isAtFirst = totalMoves === 0 || reviewStep === 0;
   const isAtLiveHead = reviewStep === null;
+
+  const handleHeatmapModeClick = (mode: HeatmapMode) => {
+    const nextMode = heatmapMode === mode ? 'none' : mode;
+    if (onSelectHeatmapMode) {
+      onSelectHeatmapMode(nextMode);
+    } else if (onToggleHeatmap) {
+      onToggleHeatmap();
+    }
+  };
 
   return (
     <div
@@ -94,7 +104,7 @@ export const GoControls: React.FC<GoControlsProps> = ({
       {/* Main Controls Row: [Replay Navigation] [Heatmap Toggle] [In-Game Actions] */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         {/* Left: Replay Navigation Controls (OGS Style) */}
-        <div className="flex items-center justify-between sm:justify-start gap-1 sm:gap-1.5 p-1 rounded-xl bg-zinc-950/60 border border-zinc-800">
+        <div className="flex items-center justify-between sm:justify-start gap-1 sm:gap-1.5 p-1 rounded-xl bg-zinc-950/60 border border-zinc-800 shrink-0">
           {/* 1. Jump to First Move */}
           <button
             onClick={onStepFirst}
@@ -160,53 +170,63 @@ export const GoControls: React.FC<GoControlsProps> = ({
             disabled={isAtLiveHead}
             data-testid="btn-replay-last"
             className="p-1.5 sm:p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            title="ไปตาล่าสุด (End)"
+            title="ไปตาล่าสุด / กลับสู่เกม (End)"
           >
             <ChevronsRight className="w-4 h-4" />
           </button>
-
-          {/* 6. Return to Live Head Button (when reviewing during ongoing game) */}
-          {isReviewing && !isGameOver && (
-            <button
-              onClick={onReturnToLive}
-              data-testid="btn-replay-live"
-              className="flex items-center gap-1 ml-1 px-3 py-1.5 rounded-lg bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-sm shadow-md shadow-amber-500/20 active:scale-95 transition-all"
-              title="กลับสู่ตาปัจจุบันเพื่อเล่นต่อ"
-            >
-              <span>กลับสู่เกม</span>
-            </button>
-          )}
         </div>
 
         {/* Center / Right: Heatmap Toggle & In-Game Actions [ย้อน] [ผ่าน] [ยอมแพ้] */}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {/* Multi-mode Heatmap Toggle */}
-          {onToggleHeatmap && (
-            <button
-              onClick={onToggleHeatmap}
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
+          {/* Multi-mode Heatmap Segmented Switcher [All | ดำ ● | ขาว ○] */}
+          {(onSelectHeatmapMode || onToggleHeatmap) && (
+            <div
               data-testid="toggle-heatmap-mode"
-              className={`flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl border text-sm font-semibold transition-all shadow-sm active:scale-95 ${
-                heatmapMode === 'none'
-                  ? 'bg-zinc-950/60 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-                  : heatmapMode === 'both'
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                  : heatmapMode === 'black'
-                  ? 'bg-zinc-950 text-zinc-100 border-zinc-600'
-                  : 'bg-zinc-100 text-zinc-900 border-zinc-300 font-bold'
-              }`}
-              title="สลับโหมด Heatmap: ปิด -> ทั้งหมด -> เฉพาะดำ -> เฉพาะขาว"
+              className="flex items-center p-0.5 rounded-xl bg-zinc-950/70 border border-zinc-800 shrink-0 text-xs font-semibold shadow-xs"
+              title="เปิด/ปิด Heatmap อาณาเขต: All (ทั้งหมด), ดำ, ขาว (กดซ้ำเพื่อปิด)"
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>
-                {heatmapMode === 'none'
-                  ? 'Heatmap: ปิด'
-                  : heatmapMode === 'both'
-                  ? 'Heatmap: ทั้งหมด'
-                  : heatmapMode === 'black'
-                  ? 'Heatmap: ดำ'
-                  : 'Heatmap: ขาว'}
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleHeatmapModeClick('both')}
+                data-testid="btn-heatmap-all"
+                className={`px-2.5 py-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center cursor-pointer ${
+                  heatmapMode === 'both'
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/50 shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
+                }`}
+                title="แสดงพื้นที่ Heatmap ทั้งหมด (คลิกซ้ำเพื่อปิด)"
+              >
+                <span>All</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleHeatmapModeClick('black')}
+                data-testid="btn-heatmap-black"
+                className={`px-2.5 py-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-1 cursor-pointer ${
+                  heatmapMode === 'black'
+                    ? 'bg-zinc-800 text-zinc-100 font-bold border border-zinc-600 shadow-xs ring-1 ring-zinc-500/30'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
+                }`}
+                title="แสดงเฉพาะพื้นที่หมากดำ (คลิกซ้ำเพื่อปิด)"
+              >
+                <span className="w-2 h-2 rounded-full bg-zinc-950 border border-zinc-500 shrink-0 inline-block" />
+                <span>ดำ</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleHeatmapModeClick('white')}
+                data-testid="btn-heatmap-white"
+                className={`px-2.5 py-1.5 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-1 cursor-pointer ${
+                  heatmapMode === 'white'
+                    ? 'bg-zinc-100 text-zinc-950 font-bold border border-zinc-300 shadow-xs ring-1 ring-zinc-400/40'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
+                }`}
+                title="แสดงเฉพาะพื้นที่หมากขาว (คลิกซ้ำเพื่อปิด)"
+              >
+                <span className="w-2 h-2 rounded-full bg-zinc-100 border border-zinc-400 shrink-0 inline-block" />
+                <span>ขาว</span>
+              </button>
+            </div>
           )}
 
           {/* Undo */}
@@ -214,7 +234,7 @@ export const GoControls: React.FC<GoControlsProps> = ({
             onClick={onUndo}
             disabled={totalMoves === 0 || isGameOver || isAiThinking || isReviewing}
             data-testid="btn-undo"
-            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/60 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-semibold transition-all shadow-sm"
+            className="flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 sm:px-3.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/60 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0"
             title="ย้อนการเดินหมากตาที่แล้ว (Undo)"
           >
             <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
@@ -226,11 +246,11 @@ export const GoControls: React.FC<GoControlsProps> = ({
             onClick={onPass}
             disabled={isGameOver || isAiThinking || isReviewing}
             data-testid="btn-pass"
-            className="flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/60 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-semibold transition-all shadow-sm"
-            title={isReviewing ? 'ต้องกลับสู่ตาปัจจุบันก่อนจึงจะผ่านได้' : 'สละสิทธิ์การวางหมากในตานี้'}
+            className="flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 sm:px-3.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/60 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0"
+            title={isReviewing ? 'ต้องกลับสู่ตาปัจจุบันก่อนจึงจะผ่านได้' : 'สละสิทธิ์การวางหมากในตานี้ (Pass)'}
           >
             <SkipForward className="w-3.5 h-3.5 text-zinc-400" />
-            <span>ผ่าน (Pass)</span>
+            <span>ผ่าน</span>
           </button>
 
           {/* Resign */}
@@ -238,11 +258,11 @@ export const GoControls: React.FC<GoControlsProps> = ({
             onClick={onResign}
             disabled={isGameOver || isAiThinking || isReviewing}
             data-testid="btn-resign"
-            className="flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-semibold transition-all shadow-sm"
-            title={isReviewing ? 'ต้องกลับสู่ตาปัจจุบันก่อนจึงจะยอมแพ้ได้' : 'ยอมแพ้ในเกมนี้'}
+            className="flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 sm:px-3.5 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-xs sm:text-sm font-semibold transition-all shadow-sm shrink-0"
+            title={isReviewing ? 'ต้องกลับสู่ตาปัจจุบันก่อนจึงจะยอมแพ้ได้' : 'ยอมแพ้ในเกมนี้ (Resign)'}
           >
             <Flag className="w-3.5 h-3.5 text-red-400" />
-            <span>ยอมแพ้ (Resign)</span>
+            <span>ยอมแพ้</span>
           </button>
         </div>
       </div>

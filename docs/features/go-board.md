@@ -15,7 +15,8 @@ The Go Board is the central visual element of GoMaster. It supports 19x19, 13x13
 - **Ghost Stone Preview:** Translucent preview of current player's stone following cursor over valid empty points.
 - **Audio Feedback:** Single source of truth synthesized wood-click audio using Web Audio API on valid move placement via `useGoGame`.
 - **Responsive Architecture:** Dynamic canvas rendering scaling smoothly down to 360px viewports via `ResizeObserver` with automatic disconnect cleanup.
-- **Replay & Navigation:** State and keyboard shortcuts (ArrowLeft/Right/Home/End) isolated in `lib/hooks/useReplayNavigation.ts`.
+- **Replay & Navigation:** State and keyboard shortcuts (ArrowLeft/Right/Home/End) isolated in `lib/hooks/useReplayNavigation.ts`. Jump to latest move / return to live game via `btn-replay-last` (`>>`).
+- **Under-Board Action Bar:** `GoControls` renders a defensive single-line layout (`shrink-0` geometry) with concise Thai labels ("ผ่าน", "ยอมแพ้") and a 3-pill segmented heatmap switcher (`[ All | ดำ ● | ขาว ○ ]`) supporting direct 1-click mode switching and toggle-off.
 
 ## Props & State Interface
 ```typescript

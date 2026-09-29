@@ -8,8 +8,8 @@
 - Integrated KataGo analysis engine bridge with real-time winrate, score lead, territory ownership heatmap, and mock fallback.
 - Implemented 9-Dan Professional Thai Coach Sensei via Gemini Flash API proxy and tactical advice fallback.
 - Built EvaluationBar with dual-player identity badges, score breakdown, and MoveHistoryPanel with per-move point delta.
-- Extracted pure domain Go handicap calculations into `lib/go/handicap.ts` and decomposed replay navigation into `lib/hooks/useReplayNavigation.ts`.
-- Verified 11 test suites and 101 tests passing with zero TypeScript or ESLint errors.
+- Streamlined GoControls bottom action bar into a defensive single-line layout with concise Thai labels ("ผ่าน", "ยอมแพ้") and fixed-width replay navigation.
+- Replaced single cycle heatmap toggle with a 3-pill segmented control [All | ดำ ● | ขาว ○] featuring 1-click direct mode selection and toggle-to-off.
 
 ### Next:
 - 1. Implement candidate move ghost stones on board with winrate badges & PV preview (Milestone 4.3).
@@ -22,8 +22,10 @@
 - ADR 003: KataGo JSON Analysis Protocol.
 - ADR 004: Server-Side AI Coach Layer via Google Gemini Flash.
 - ADR 005: Handicap Undo State Preservation & Hook Decomposition.
+- ADR 006: GoControls Single-Line Action Bar & 3-Pill Heatmap Segmented Switcher.
 
 ### Skills:
 - `plan` (.agent/skills/plan/) — Milestone planning and TDD-lite specification.
 - `coding` (.agent/skills/coding/) — Surgical implementation and self-healing validation.
 - `scrutinize` (.agent/skills/scrutinize/) — Quality and AppSec gatekeeping.
+- `handoff` (.agent/skills/handoff/) — Session closure and persistent state transfer.

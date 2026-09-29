@@ -21,12 +21,14 @@
 | Replay First Move Button | `btn-replay-first` | Jump to move 0 (initial board) |
 | Replay Prev Move Button | `btn-replay-prev` | Step backward one move (ArrowLeft) |
 | Replay Next Move Button | `btn-replay-next` | Step forward one move (ArrowRight) |
-| Replay Last Move Button | `btn-replay-last` | Jump to latest move / return to head |
-| Replay Live Return Button | `btn-replay-live` | Return to live head during in-game review |
+| Replay Last Move Button | `btn-replay-last` | Jump to latest move / return to live game |
 | Replay Step Indicator | `replay-step-indicator` | Displays current move index and total moves |
 | Coach Advice Tab | `tab-coach` | Tab button for AI Sensei Coach advice |
 | Move History Tab | `tab-history` | Tab button for Move History |
-| Heatmap Mode Toggle | `toggle-heatmap-mode` | Multi-mode heatmap toggle button in bottom bar |
+| Heatmap Mode Container | `toggle-heatmap-mode` | Multi-mode heatmap segmented switcher in bottom bar |
+| Heatmap All Button | `btn-heatmap-all` | Toggle combined black and white territory heatmap |
+| Heatmap Black Button | `btn-heatmap-black` | Toggle Black territory heatmap overlay |
+| Heatmap White Button | `btn-heatmap-white` | Toggle White territory heatmap overlay |
 | Black Player Badge | `eval-player-black` | Player identity badge for Black in EvaluationBar |
 | White Player Badge | `eval-player-white` | Player identity badge for White in EvaluationBar |
 | History Black Column | `history-col-black` | Black move column in history panel |

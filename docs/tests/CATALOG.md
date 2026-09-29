@@ -57,6 +57,7 @@
 | `RULE-UNDO-HCAP-01` | Validates undoMove retains handicap stones and White turn when undoing moves | `tests/go/rules.test.ts` | Tier 1 |
 | `RULE-HCAP-DOMAIN-01` | Pure domain Go handicap star points and Komi resolution in lib/go/handicap.ts | `tests/components/new-game-modal.test.ts` | Tier 1 |
 | `HOOK-REPLAY-NAV-01` | Custom useReplayNavigation hook step transitions, boundary clamping, and key events | `tests/components/replay-navigation.test.ts` | Tier 2 |
+| `UI-CONTROLS-01` | GoControls action bar single-line layout, Thai labels ("ผ่าน", "ยอมแพ้"), and 3-pill segmented heatmap switcher | `tests/components/go-controls.test.ts` | Tier 2 |
 
 
 

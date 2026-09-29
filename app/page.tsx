@@ -199,6 +199,7 @@ export default function HomePage() {
               onOpenNewGame={() => setIsNewGameOpen(true)}
               isAiThinking={isAiThinking}
               heatmapMode={heatmapMode}
+              onSelectHeatmapMode={setHeatmapMode}
               onToggleHeatmap={() => setHeatmapMode(prev => getNextHeatmapMode(prev))}
               reviewStep={reviewStep}
               isReviewing={isReviewing}

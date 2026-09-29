@@ -25,3 +25,11 @@
 - **Decision:** Extract pure domain handicap calculations into `lib/go/handicap.ts`, update `undoMove` to accept initial states, restore undos from `historySnapshots` in O(1), and isolate step review/keyboard navigation in `useReplayNavigation`.
 - **Consequences:** Solves handicap undo regressions, decouples domain logic from React UI, and eliminates duplicate audio triggers.
 
+### ADR 006: GoControls Single-Line Action Bar & 3-Pill Heatmap Segmented Switcher
+- **Context:** The under-board action controls suffered from layout wrapping (dropping "ยอมแพ้" to row 2) and dynamic container expansion when entering replay review mode ("กลับสู่เกม" button expanding the replay container). In addition, cycling through 4 heatmap states with a single toggle button was tedious for users.
+- **Decision:**
+  1. Trim English suffixes to concise Thai ("ผ่าน", "ยอมแพ้") and apply `shrink-0` to keep all buttons in a single responsive row without flex wrapping.
+  2. Remove dynamic "กลับสู่เกม" button, utilizing the existing `>>` (`btn-replay-last`) button to jump to the live game, keeping replay controls at a fixed predictable width.
+  3. Replace the single cycle button with a 3-pill Segmented Control `[ All | ดำ ● | ขาว ○ ]` supporting direct 1-click mode activation and 1-click toggle-off.
+- **Consequences:** Zero visual overflow across desktop and tablet viewports, instant 1-click heatmap selection, fixed control bar width, and 100% test coverage.
+
