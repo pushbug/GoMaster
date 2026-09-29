@@ -182,6 +182,48 @@ describe('KataGo Analysis Engine Bridge', () => {
       // Candidate move winrate remains 99.0% for White's candidate badge
       expect(parsed.suggestedMoves[0].winrate).toBe(99.0);
     });
+
+    it('inverts ownershipGrid polarity when currentPlayer is White (ENG-PARSE-03)', () => {
+      // SIDETOMOVE: raw ownership +0.9 means White territory when currentPlayer is W
+      // After inversion: +0.9 must become -0.9 (White), and -0.6 must become +0.6 (Black)
+      const rawWhiteOwnership: KataGoRawResponse = {
+        id: 'query_ownership_inv',
+        rootInfo: {
+          currentPlayer: 'W',
+          winrate: 0.80,
+          scoreLead: 15.0,
+          visits: 500,
+        },
+        // 9x9 = 81 values: first 40 positive (White territory under SIDETOMOVE), last 41 negative (Black territory)
+        ownership: new Array(81).fill(0).map((_, i) => (i < 40 ? 0.9 : -0.6)),
+        moveInfos: [],
+      };
+
+      const parsed = parseKataGoRawResponse(rawWhiteOwnership, 9, false);
+
+      // After inversion: raw +0.9 (White territory) → -0.9
+      expect(parsed.ownershipGrid[0][0]).toBeCloseTo(-0.9, 2);
+      // After inversion: raw -0.6 (Black territory) → +0.6
+      expect(parsed.ownershipGrid[8][8]).toBeCloseTo(0.6, 2);
+
+      // Verify Black-turn ownership is NOT inverted (control case)
+      const rawBlackOwnership: KataGoRawResponse = {
+        id: 'query_ownership_black',
+        rootInfo: {
+          currentPlayer: 'B',
+          winrate: 0.60,
+          scoreLead: 3.0,
+          visits: 500,
+        },
+        ownership: new Array(81).fill(0).map((_, i) => (i < 40 ? 0.8 : -0.7)),
+        moveInfos: [],
+      };
+
+      const parsedBlack = parseKataGoRawResponse(rawBlackOwnership, 9, false);
+      // Black turn: raw values stay as-is (+0.8 = Black, -0.7 = White)
+      expect(parsedBlack.ownershipGrid[0][0]).toBeCloseTo(0.8, 2);
+      expect(parsedBlack.ownershipGrid[8][8]).toBeCloseTo(-0.7, 2);
+    });
   });
 
   describe('Mock Fallback Engine (ENG-MOCK-01)', () => {

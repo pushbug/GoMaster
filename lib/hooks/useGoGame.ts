@@ -6,11 +6,12 @@ import { CoachAdviceResponse } from '@/lib/coach/gemini-coach';
 import { getRankConfig, Rank, selectBotMove } from '@/lib/engine/difficulty';
 import { EngineAnalysisResult } from '@/lib/engine/types';
 import { pointToString } from '@/lib/go/board';
-import { CandidateMove } from '@/lib/go/board-renderer';
-import { createInitialGameState, playMove, undoMove } from '@/lib/go/rules';
+import { getDisplayState } from '@/lib/go/replay';
+import { createHandicapGameState, createInitialGameState, playMove, undoMove } from '@/lib/go/rules';
 import { exportToSgf } from '@/lib/go/sgf';
 import { stoneSoundEngine } from '@/lib/go/sound';
 import { BLACK, BoardSize, GameState, Point, WHITE } from '@/lib/go/types';
+import { useReplayNavigation } from './useReplayNavigation';
 import {
   calculateAccuracy,
   MatchRecord,
@@ -28,6 +29,28 @@ export function useGoGame(options: UseGoGameOptions = {}) {
   const [gameState, setGameState] = useState<GameState>(() =>
     createInitialGameState(initialBoardSize)
   );
+
+  // History Snapshots & Replay Navigation Sub-Hook
+  const [historySnapshots, setHistorySnapshots] = useState<GameState[]>(() => [
+    createInitialGameState(initialBoardSize),
+  ]);
+
+  const {
+    reviewStep,
+    setReviewStep,
+    isReviewing,
+    handleStepPrev,
+    handleStepNext,
+    handleStepFirst,
+    handleStepLast,
+    handleReturnToLive,
+    handleSelectStep,
+  } = useReplayNavigation({
+    totalMoves: gameState.history.length,
+    soundEnabled,
+  });
+
+  const displayGameState = getDisplayState(gameState, historySnapshots, reviewStep);
 
   // AI & Game Mode Settings
   const [gameMode, setGameMode] = useState<GameMode>('vs-ai');
@@ -152,12 +175,14 @@ export function useGoGame(options: UseGoGameOptions = {}) {
   // Handle Play Move by User
   const handlePlayMove = async (point: Point) => {
     if (isAiThinkingRef.current) return;
+    if (isReviewing) return;
 
     const result = playMove(gameState, point);
     if (!result.success) return;
 
     const nextState = result.state;
     setGameState(nextState);
+    setHistorySnapshots(prev => [...prev, nextState]);
 
     if (soundEnabled) {
       stoneSoundEngine.playStoneClick();
@@ -262,6 +287,7 @@ export function useGoGame(options: UseGoGameOptions = {}) {
 
         // Apply bot's move to board
         setGameState(nextState);
+        setHistorySnapshots(prev => [...prev, nextState]);
 
         // Record any score loss from bot if applicable
         if (botEval && botEval.scoreLoss > 0) {
@@ -349,38 +375,60 @@ export function useGoGame(options: UseGoGameOptions = {}) {
 
   // Game Actions
   const handlePass = () => {
-    if (isAiThinking || isAiThinkingRef.current) return;
+    if (isAiThinking || isAiThinkingRef.current || isReviewing) return;
     const result = playMove(gameState, 'PASS');
-    if (result.success) setGameState(result.state);
+    if (result.success) {
+      setGameState(result.state);
+      setHistorySnapshots(prev => [...prev, result.state]);
+    }
   };
 
   const handleResign = () => {
-    if (isAiThinking || isAiThinkingRef.current) return;
+    if (isAiThinking || isAiThinkingRef.current || isReviewing) return;
     const result = playMove(gameState, 'RESIGN');
-    if (result.success) setGameState(result.state);
+    if (result.success) {
+      setGameState(result.state);
+      setHistorySnapshots(prev => [...prev, result.state]);
+    }
   };
 
   const handleUndo = () => {
     if (isAiThinking || isAiThinkingRef.current) return;
-    // In vs-ai mode, undo 2 moves (both bot and player) to restore player's turn
-    if (gameMode === 'vs-ai' && gameState.history.length >= 2) {
-      setGameState(prev => undoMove(undoMove(prev)));
+    const undoCount = gameMode === 'vs-ai' && gameState.history.length >= 2 ? 2 : 1;
+    const targetIndex = Math.max(0, gameState.history.length - undoCount);
+
+    let nextState: GameState;
+    if (historySnapshots[targetIndex]) {
+      nextState = historySnapshots[targetIndex];
     } else {
-      setGameState(prev => undoMove(prev));
+      nextState = undoMove(gameState, historySnapshots[0]);
     }
+
+    setGameState(nextState);
+    setHistorySnapshots(prev => prev.slice(0, targetIndex + 1));
+    setReviewStep(null);
   };
 
-  const handleReset = (size?: BoardSize) => {
+  const handleReset = (size?: BoardSize, handicapPoints?: Point[]) => {
     matchSavedRef.current = false;
     isAiThinkingRef.current = false;
     setIsAiThinking(false);
-    setGameState(createInitialGameState(size || gameState.boardSize));
+    const targetSize = size || gameState.boardSize;
+    const initial =
+      handicapPoints && handicapPoints.length >= 2
+        ? createHandicapGameState(targetSize, handicapPoints)
+        : createInitialGameState(targetSize);
+    setGameState(initial);
+    setHistorySnapshots([initial]);
+    setReviewStep(null);
     setAnalysis(null);
     setCoachAdvice(null);
     setPlayerLosses([]);
     setWinrateHistory([50]);
     setScoreLeadHistory([0]);
   };
+
+
 
   const handleModeChange = (newMode: GameMode) => {
     if (newMode === gameMode) return;
@@ -394,22 +442,20 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     handleReset();
   };
 
-  // Convert suggested moves to Board overlay candidate format
-  const candidateMoves: CandidateMove[] | null = analysis
-    ? analysis.suggestedMoves
-        .filter(m => m.point !== null)
-        .map(m => ({
-          point: m.point!,
-          winrate: m.winrate,
-          scoreLead: m.scoreLead,
-          visits: m.visits,
-          rank: m.rank,
-        }))
-    : null;
-
   return {
     gameState,
     setGameState,
+    displayGameState,
+    reviewStep,
+    setReviewStep,
+    isReviewing,
+    historySnapshots,
+    handleStepPrev,
+    handleStepNext,
+    handleStepFirst,
+    handleStepLast,
+    handleReturnToLive,
+    handleSelectStep,
     gameMode,
     setGameMode,
     selectedRank,
@@ -418,7 +464,8 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     setPlayerColor,
     isAiThinking,
     analysis,
-    candidateMoves,
+    scoreLeadHistory,
+    winrateHistory,
     coachAdvice,
     isCoachLoading,
     isEngineMock,

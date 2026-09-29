@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COLUMN_LETTERS, pointToString, stringToPoint } from '../../lib/go/board';
-import { createInitialGameState, findGroup, playMove, undoMove, validateMove } from '../../lib/go/rules';
+import { createHandicapGameState, createInitialGameState, findGroup, playMove, undoMove, validateMove } from '../../lib/go/rules';
 import { exportToSgf, importFromSgf } from '../../lib/go/sgf';
 import { BLACK, EMPTY, WHITE } from '../../lib/go/types';
 
@@ -250,6 +250,47 @@ describe('Go Rule Engine & Board Logic', () => {
       expect(state.turn).toBe(BLACK);
       expect(state.board[3][3]).toBe(EMPTY);
     });
+
+    it('preserves handicap stones and White turn when undoing in handicap games (RULE-UNDO-HCAP-01)', () => {
+      const handicapPts = [
+        { x: 3, y: 3 },
+        { x: 15, y: 15 },
+      ];
+      const initial = createHandicapGameState(19, handicapPts);
+      expect(initial.turn).toBe(WHITE);
+      expect(initial.board[3][3]).toBe(BLACK);
+      expect(initial.board[15][15]).toBe(BLACK);
+
+      // Move 1: White plays at (9, 9)
+      const move1 = playMove(initial, { x: 9, y: 9 });
+      expect(move1.success).toBe(true);
+      let state = move1.state;
+      expect(state.history.length).toBe(1);
+      expect(state.turn).toBe(BLACK);
+
+      // Move 2: Black plays at (10, 10)
+      const move2 = playMove(state, { x: 10, y: 10 });
+      expect(move2.success).toBe(true);
+      state = move2.state;
+      expect(state.history.length).toBe(2);
+
+      // Undo Move 2 with initial handicap state passed
+      state = undoMove(state, initial);
+      expect(state.history.length).toBe(1);
+      expect(state.turn).toBe(BLACK);
+      expect(state.board[3][3]).toBe(BLACK);
+      expect(state.board[15][15]).toBe(BLACK);
+      expect(state.board[9][9]).toBe(WHITE);
+      expect(state.board[10][10]).toBe(EMPTY);
+
+      // Undo Move 1 back to initial handicap state
+      state = undoMove(state, initial);
+      expect(state.history.length).toBe(0);
+      expect(state.turn).toBe(WHITE); // White turn preserved!
+      expect(state.board[3][3]).toBe(BLACK); // Handicap stone intact!
+      expect(state.board[15][15]).toBe(BLACK); // Handicap stone intact!
+      expect(state.board[9][9]).toBe(EMPTY);
+    });
   });
 
   describe('SGF Serialization & Parsing (RULE-SGF-01)', () => {
@@ -268,6 +309,58 @@ describe('Go Rule Engine & Board Logic', () => {
       expect(imported.state?.board[3][15]).toBe(BLACK);
       expect(imported.state?.board[15][3]).toBe(WHITE);
       expect(imported.state?.history.length).toBe(2);
+    });
+  });
+
+  describe('Handicap Game Initialization (RULE-HCAP-01)', () => {
+    it('initializes game with handicap stones and sets White to play first', () => {
+      const handicapPoints = [
+        { x: 3, y: 3 },
+        { x: 15, y: 15 },
+      ];
+      const state = createHandicapGameState(19, handicapPoints);
+
+      // Verify Black stones placed on handicap points
+      expect(state.board[3][3]).toBe(BLACK);
+      expect(state.board[15][15]).toBe(BLACK);
+      expect(state.board[9][9]).toBe(EMPTY);
+
+      // Verify White plays first move
+      expect(state.turn).toBe(WHITE);
+      expect(state.history.length).toBe(0);
+
+      // Verify boardHash is computed and registered for superko/repetition tracking
+      expect(state.boardHashes.size).toBe(1);
+
+      // White plays first legal move
+      const res = playMove(state, { x: 9, y: 9 });
+      expect(res.success).toBe(true);
+      expect(res.state.turn).toBe(BLACK);
+      expect(res.state.board[9][9]).toBe(WHITE);
+      expect(res.state.history.length).toBe(1);
+    });
+
+    it('falls back to standard initial state when handicap points are fewer than 2', () => {
+      const state0 = createHandicapGameState(19, []);
+      expect(state0.turn).toBe(BLACK);
+      expect(state0.board[3][3]).toBe(EMPTY);
+
+      const state1 = createHandicapGameState(19, [{ x: 3, y: 3 }]);
+      expect(state1.turn).toBe(BLACK);
+      expect(state1.board[3][3]).toBe(EMPTY);
+    });
+
+    it('sanitizes and ignores out-of-bounds handicap points', () => {
+      const pointsWithInvalid = [
+        { x: 3, y: 3 },
+        { x: 15, y: 15 },
+        { x: -1, y: 5 },
+        { x: 20, y: 20 },
+      ];
+      const state = createHandicapGameState(19, pointsWithInvalid);
+      expect(state.turn).toBe(WHITE);
+      expect(state.board[3][3]).toBe(BLACK);
+      expect(state.board[15][15]).toBe(BLACK);
     });
   });
 });

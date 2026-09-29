@@ -1,13 +1,6 @@
 import { COLUMN_LETTERS, getStarPoints } from './board';
+import { HeatmapMode } from './history-analysis';
 import { BLACK, BoardSize, EMPTY, Point, Stone, WHITE } from './types';
-
-export interface CandidateMove {
-  point: Point;
-  winrate: number; // 0 to 100
-  scoreLead: number;
-  visits?: number;
-  rank?: number; // 1 = best
-}
 
 export interface BoardThemeColors {
   background: string;
@@ -32,7 +25,7 @@ export interface BoardRenderParams {
   turn: Stone;
   lastMove: Point | null;
   ownershipMap?: number[][] | null;
-  candidateMoves?: CandidateMove[] | null;
+  heatmapMode?: HeatmapMode;
   hoverPoint: Point | null;
   isHoverValid: boolean;
   interactive: boolean;
@@ -61,9 +54,7 @@ export function getCanvasCoords(
 export function drawBoardBackground(
   ctx: CanvasRenderingContext2D,
   displaySize: number,
-  boardTheme: 'wood' | 'slate' | 'minimal',
-  coordMargin: number,
-  boardAreaSize: number
+  boardTheme: 'wood' | 'slate' | 'minimal'
 ): void {
   if (boardTheme === 'wood') {
     const woodGrad = ctx.createLinearGradient(0, 0, displaySize, displaySize);
@@ -77,11 +68,6 @@ export function drawBoardBackground(
     ctx.fillStyle = '#f4f4f5'; // zinc-100
   }
   ctx.fillRect(0, 0, displaySize, displaySize);
-
-  // Outer subtle wood bevel/border
-  ctx.strokeStyle = boardTheme === 'wood' ? '#8a6224' : '#3f3f46';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(coordMargin - 4, coordMargin - 4, boardAreaSize + 8, boardAreaSize + 8);
 }
 
 /**
@@ -168,12 +154,18 @@ export function drawOwnershipHeatmap(
   ownershipMap: number[][],
   boardSize: BoardSize,
   coordMargin: number,
-  cellSize: number
+  cellSize: number,
+  heatmapMode: HeatmapMode = 'both'
 ): void {
+  if (heatmapMode === 'none') return;
+
   for (let y = 0; y < boardSize; y++) {
     for (let x = 0; x < boardSize; x++) {
       const val = ownershipMap[y]?.[x] ?? 0;
       if (Math.abs(val) > 0.05) {
+        if (heatmapMode === 'black' && val <= 0.05) continue;
+        if (heatmapMode === 'white' && val >= -0.05) continue;
+
         const { cx, cy } = getCanvasCoords(x, y, coordMargin, cellSize);
         const boxR = cellSize * 0.42;
         ctx.fillStyle =
@@ -304,33 +296,6 @@ export function drawLastMoveMarker(
 }
 
 /**
- * Draws KataGo candidate moves overlay badges
- */
-export function drawCandidateMoves(
-  ctx: CanvasRenderingContext2D,
-  candidateMoves: CandidateMove[],
-  coordMargin: number,
-  cellSize: number,
-  stoneRadius: number
-): void {
-  candidateMoves.forEach((cand, idx) => {
-    const { cx, cy } = getCanvasCoords(cand.point.x, cand.point.y, coordMargin, cellSize);
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, stoneRadius * 0.85, 0, Math.PI * 2);
-    ctx.fillStyle = idx === 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(59, 130, 246, 0.65)';
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.floor(cellSize * 0.3)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${Math.round(cand.winrate)}%`, cx, cy);
-    ctx.restore();
-  });
-}
-
-/**
  * Draws ghost stone preview on hover or red cross if invalid move
  */
 export function drawGhostStone(
@@ -381,7 +346,7 @@ export function renderGoBoard(params: BoardRenderParams): void {
     turn,
     lastMove,
     ownershipMap,
-    candidateMoves,
+    heatmapMode = 'both',
     hoverPoint,
     isHoverValid,
     interactive,
@@ -391,8 +356,8 @@ export function renderGoBoard(params: BoardRenderParams): void {
 
   ctx.clearRect(0, 0, displaySize * dpr, displaySize * dpr);
 
-  // 1. Board Background & Bevel
-  drawBoardBackground(ctx, displaySize, boardTheme, coordMargin, boardAreaSize);
+  // 1. Board Background
+  drawBoardBackground(ctx, displaySize, boardTheme);
 
   // 2. Coordinate Labels
   if (showCoordinates) {
@@ -403,8 +368,8 @@ export function renderGoBoard(params: BoardRenderParams): void {
   drawGridAndStars(ctx, boardSize, boardTheme, coordMargin, cellSize);
 
   // 4. KataGo Ownership Heatmap
-  if (ownershipMap) {
-    drawOwnershipHeatmap(ctx, ownershipMap, boardSize, coordMargin, cellSize);
+  if (ownershipMap && heatmapMode !== 'none') {
+    drawOwnershipHeatmap(ctx, ownershipMap, boardSize, coordMargin, cellSize, heatmapMode);
   }
 
   // 5. Placed Stones
@@ -415,12 +380,7 @@ export function renderGoBoard(params: BoardRenderParams): void {
     drawLastMoveMarker(ctx, lastMove, board, coordMargin, cellSize, stoneRadius);
   }
 
-  // 7. Candidate Moves Badges
-  if (candidateMoves && candidateMoves.length > 0) {
-    drawCandidateMoves(ctx, candidateMoves, coordMargin, cellSize, stoneRadius);
-  }
-
-  // 8. Ghost Stone Hover Preview
+  // 7. Ghost Stone Hover Preview
   if (
     interactive &&
     showGhostStone &&

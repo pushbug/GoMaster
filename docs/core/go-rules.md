@@ -15,7 +15,9 @@
 2. **Suicide Prohibition:** A move is illegal if it leaves the newly placed stone's group with 0 liberties, **UNLESS** the move simultaneously captures one or more opponent stones (which opens up liberties).
 3. **Simple Ko Rule:** A move cannot recreate the exact previous board position immediately (prevents infinite 1-stone recapture cycles).
 
-## 4. Game Control
+## 4. Game Control & Handicap System
 - **Pass:** Turn passes to the next player. Two consecutive passes indicate game end.
 - **Resign:** Current player concedes.
-- **Move History & SGF:** Full tree navigation (undo, redo, jump to index).
+- **Handicap Placement (`lib/go/handicap.ts`):** Supports 2 to 9 stones on traditional star points (Hoshi) across 19x19, 13x13, and 9x9 boards. In handicap Go, White plays the first move and standard Komi defaults to 0.5.
+- **Move History & Undo Integrity:** Undo (`undoMove`) faithfully preserves initial handicap states and White turn, backed by O(1) snapshots in `useGoGame`.
+

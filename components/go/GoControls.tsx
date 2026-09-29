@@ -1,15 +1,18 @@
 'use client';
 
 import React from 'react';
-import { exportToSgf } from '@/lib/go/sgf';
-import { BLACK, BoardSize, GameState, WHITE } from '@/lib/go/types';
+import { HeatmapMode } from '@/lib/go/history-analysis';
+import { GameState } from '@/lib/go/types';
 import {
-  Download,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Eye,
   Flag,
+  Play,
   RotateCcw,
   SkipForward,
-  Volume2,
-  VolumeX,
 } from 'lucide-react';
 
 interface GoControlsProps {
@@ -17,12 +20,22 @@ interface GoControlsProps {
   onPass: () => void;
   onResign: () => void;
   onUndo: () => void;
-  onReset: (size?: BoardSize) => void;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
-  boardTheme: 'wood' | 'slate' | 'minimal';
-  onChangeTheme: (theme: 'wood' | 'slate' | 'minimal') => void;
+  onOpenNewGame?: () => void;
+  isAiThinking?: boolean;
   className?: string;
+
+  // Heatmap Controls Props
+  heatmapMode?: HeatmapMode;
+  onToggleHeatmap?: () => void;
+
+  // Replay & Step Navigation Props
+  reviewStep?: number | null;
+  isReviewing?: boolean;
+  onStepPrev?: () => void;
+  onStepNext?: () => void;
+  onStepFirst?: () => void;
+  onStepLast?: () => void;
+  onReturnToLive?: () => void;
 }
 
 export const GoControls: React.FC<GoControlsProps> = ({
@@ -30,203 +43,206 @@ export const GoControls: React.FC<GoControlsProps> = ({
   onPass,
   onResign,
   onUndo,
-  onReset,
-  soundEnabled,
-  onToggleSound,
-  boardTheme,
-  onChangeTheme,
+  onOpenNewGame,
+  isAiThinking = false,
   className = '',
+  heatmapMode = 'none',
+  onToggleHeatmap,
+  reviewStep = null,
+  isReviewing = false,
+  onStepPrev,
+  onStepNext,
+  onStepFirst,
+  onStepLast,
+  onReturnToLive,
 }) => {
-  const { turn, captures, history, isGameOver, winner, resignReason } = gameState;
-
-  const handleExportSgf = () => {
-    const sgfText = exportToSgf(gameState);
-    const blob = new Blob([sgfText], { type: 'application/x-go-sgf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gomaster_game_${new Date().toISOString().slice(0, 10)}.sgf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const { history, isGameOver, winner, resignReason } = gameState;
+  const totalMoves = history.length;
+  const currentStepNum = reviewStep === null ? totalMoves : reviewStep;
+  const isAtFirst = totalMoves === 0 || reviewStep === 0;
+  const isAtLiveHead = reviewStep === null;
 
   return (
     <div
-      className={`flex flex-col gap-4 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-100 shadow-xl ${className}`}
+      className={`w-full flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-zinc-100 shadow-xl ${className}`}
     >
-      {/* 1. Header & Game Status */}
-      <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div
-            className={`w-6 h-6 rounded-full border-2 shadow-inner transition-colors duration-200 ${
-              turn === BLACK
-                ? 'bg-zinc-950 border-zinc-500 shadow-black'
-                : 'bg-zinc-100 border-zinc-400 shadow-zinc-400'
-            }`}
-          />
-          <div>
-            <div className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
-              สถานะเกม (Status)
-            </div>
-            <div className="text-base font-bold" data-testid="turn-indicator">
-              {isGameOver
-                ? winner === 'DRAW'
-                  ? 'เสมอ (Draw)'
-                  : `ผู้ชนะ: ${winner === BLACK ? 'หมากดำ (Black)' : 'หมากขาว (White)'}`
-                : `ตาเดิน: ${turn === BLACK ? 'หมากดำ (Black)' : 'หมากขาว (White)'}`}
-            </div>
+      {/* Game Over Banner if ended */}
+      {isGameOver && (
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-amber-400">
+              {winner === 'DRAW'
+                ? 'ผลการแข่งขัน: เสมอ (Draw)'
+                : `ผู้ชนะ: ${winner === 1 ? 'หมากดำ (Black)' : 'หมากขาว (White)'}`}
+            </span>
+            {resignReason && (
+              <span className="text-zinc-400">({resignReason})</span>
+            )}
           </div>
-        </div>
-
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
-            จำนวนเม็ด (Move)
-          </div>
-          <div className="text-base font-mono font-bold text-amber-400">
-            #{history.length}
-          </div>
-        </div>
-      </div>
-
-      {isGameOver && resignReason && (
-        <div className="p-3 bg-red-950/60 border border-red-800/80 rounded-xl text-red-200 text-sm font-medium text-center">
-          {resignReason}
+          {onOpenNewGame && (
+            <button
+              onClick={onOpenNewGame}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-colors shadow-sm"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>เริ่มเกมใหม่</span>
+            </button>
+          )}
         </div>
       )}
 
-      {/* 2. Captures Counters */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Black Player Box */}
-        <div
-          className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
-            turn === BLACK && !isGameOver
-              ? 'bg-zinc-800/90 border-amber-500/50 shadow-md shadow-amber-500/10'
-              : 'bg-zinc-950/60 border-zinc-800'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-zinc-950 border border-zinc-600" />
-            <span className="text-sm font-medium text-zinc-300">หมากดำ</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-zinc-500">กิน:</span>
+      {/* Main Controls Row: [Replay Navigation] [Heatmap Toggle] [In-Game Actions] */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        {/* Left: Replay Navigation Controls (OGS Style) */}
+        <div className="flex items-center justify-between sm:justify-start gap-1 sm:gap-1.5 p-1 rounded-xl bg-zinc-950/60 border border-zinc-800">
+          {/* 1. Jump to First Move */}
+          <button
+            onClick={onStepFirst}
+            disabled={isAtFirst}
+            data-testid="btn-replay-first"
+            className="p-1.5 sm:p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            title="ไปตาแรกสุด (Home)"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+
+          {/* 2. Step Backward */}
+          <button
+            onClick={onStepPrev}
+            disabled={isAtFirst}
+            data-testid="btn-replay-prev"
+            className="p-1.5 sm:p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            title="ย้อน 1 ตา (ArrowLeft)"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* 3. Step Counter Indicator */}
+          <div
+            data-testid="replay-step-indicator"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-sm font-mono select-none"
+            title={`กำลังแสดงตาที่ ${currentStepNum} จากทั้งหมด ${totalMoves} ตา`}
+          >
             <span
-              className="text-base font-bold font-mono text-zinc-100"
-              data-testid="counter-black-captures"
-            >
-              {captures.black}
-            </span>
-          </div>
-        </div>
-
-        {/* White Player Box */}
-        <div
-          className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
-            turn === WHITE && !isGameOver
-              ? 'bg-zinc-800/90 border-amber-500/50 shadow-md shadow-amber-500/10'
-              : 'bg-zinc-950/60 border-zinc-800'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-zinc-100 border border-zinc-400" />
-            <span className="text-sm font-medium text-zinc-300">หมากขาว</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-zinc-500">กิน:</span>
-            <span
-              className="text-base font-bold font-mono text-zinc-100"
-              data-testid="counter-white-captures"
-            >
-              {captures.white}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Action Buttons */}
-      <div className="grid grid-cols-3 gap-2">
-        <button
-          onClick={onPass}
-          disabled={isGameOver}
-          data-testid="btn-pass"
-          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-medium transition-all"
-        >
-          <SkipForward className="w-4 h-4 text-zinc-400" />
-          <span>ผ่าน (Pass)</span>
-        </button>
-
-        <button
-          onClick={onUndo}
-          disabled={history.length === 0 || isGameOver}
-          data-testid="btn-undo"
-          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-medium transition-all"
-        >
-          <RotateCcw className="w-4 h-4 text-zinc-400" />
-          <span>ย้อน (Undo)</span>
-        </button>
-
-        <button
-          onClick={onResign}
-          disabled={isGameOver}
-          data-testid="btn-resign"
-          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-medium transition-all"
-        >
-          <Flag className="w-4 h-4 text-red-400" />
-          <span>ยอมแพ้</span>
-        </button>
-      </div>
-
-      {/* 4. Configuration & Tools */}
-      <div className="pt-2 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-        {/* Board Size Buttons */}
-        <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
-          <span className="text-zinc-500 px-1 font-semibold">ขนาด:</span>
-          {([19, 13, 9] as BoardSize[]).map(size => (
-            <button
-              key={size}
-              onClick={() => onReset(size)}
-              className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-                gameState.boardSize === size
-                  ? 'bg-amber-500 text-zinc-950 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200'
+              className={`font-bold ${
+                isReviewing ? 'text-amber-400' : 'text-zinc-200'
               }`}
             >
-              {size}x{size}
+              #{currentStepNum}
+            </span>
+            <span className="text-zinc-600">/</span>
+            <span className="text-zinc-400">{totalMoves}</span>
+            {isReviewing ? (
+              <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-sans font-medium">
+                ดูย้อน
+              </span>
+            ) : (
+              <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-sans font-medium">
+                สด
+              </span>
+            )}
+          </div>
+
+          {/* 4. Step Forward */}
+          <button
+            onClick={onStepNext}
+            disabled={isAtLiveHead}
+            data-testid="btn-replay-next"
+            className="p-1.5 sm:p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            title="เดินหน้า 1 ตา (ArrowRight)"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* 5. Jump to Last Move / Live Head */}
+          <button
+            onClick={onStepLast}
+            disabled={isAtLiveHead}
+            data-testid="btn-replay-last"
+            className="p-1.5 sm:p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            title="ไปตาล่าสุด (End)"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+
+          {/* 6. Return to Live Head Button (when reviewing during ongoing game) */}
+          {isReviewing && !isGameOver && (
+            <button
+              onClick={onReturnToLive}
+              data-testid="btn-replay-live"
+              className="flex items-center gap-1 ml-1 px-3 py-1.5 rounded-lg bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-sm shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+              title="กลับสู่ตาปัจจุบันเพื่อเล่นต่อ"
+            >
+              <span>กลับสู่เกม</span>
             </button>
-          ))}
+          )}
         </div>
 
-        {/* Theme and Sound Toggles */}
-        <div className="flex items-center gap-1.5">
+        {/* Center / Right: Heatmap Toggle & In-Game Actions [ย้อน] [ผ่าน] [ยอมแพ้] */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Multi-mode Heatmap Toggle */}
+          {onToggleHeatmap && (
+            <button
+              onClick={onToggleHeatmap}
+              data-testid="toggle-heatmap-mode"
+              className={`flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl border text-sm font-semibold transition-all shadow-sm active:scale-95 ${
+                heatmapMode === 'none'
+                  ? 'bg-zinc-950/60 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                  : heatmapMode === 'both'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                  : heatmapMode === 'black'
+                  ? 'bg-zinc-950 text-zinc-100 border-zinc-600'
+                  : 'bg-zinc-100 text-zinc-900 border-zinc-300 font-bold'
+              }`}
+              title="สลับโหมด Heatmap: ปิด -> ทั้งหมด -> เฉพาะดำ -> เฉพาะขาว"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>
+                {heatmapMode === 'none'
+                  ? 'Heatmap: ปิด'
+                  : heatmapMode === 'both'
+                  ? 'Heatmap: ทั้งหมด'
+                  : heatmapMode === 'black'
+                  ? 'Heatmap: ดำ'
+                  : 'Heatmap: ขาว'}
+              </span>
+            </button>
+          )}
+
+          {/* Undo */}
           <button
-            onClick={() => {
-              const nextTheme =
-                boardTheme === 'wood' ? 'slate' : boardTheme === 'slate' ? 'minimal' : 'wood';
-              onChangeTheme(nextTheme);
-            }}
-            className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium capitalize"
+            onClick={onUndo}
+            disabled={totalMoves === 0 || isGameOver || isAiThinking || isReviewing}
+            data-testid="btn-undo"
+            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/60 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-semibold transition-all shadow-sm"
+            title="ย้อนการเดินหมากตาที่แล้ว (Undo)"
           >
-            ธีม: {boardTheme === 'wood' ? 'ไม้ Kaya' : boardTheme === 'slate' ? 'Slate ดำ' : 'ขาว'}
+            <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="hidden sm:inline">ย้อน</span>
           </button>
 
+          {/* Pass */}
           <button
-            onClick={onToggleSound}
-            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
-            title={soundEnabled ? 'ปิดเสียง' : 'เปิดเสียง'}
+            onClick={onPass}
+            disabled={isGameOver || isAiThinking || isReviewing}
+            data-testid="btn-pass"
+            className="flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/60 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-semibold transition-all shadow-sm"
+            title={isReviewing ? 'ต้องกลับสู่ตาปัจจุบันก่อนจึงจะผ่านได้' : 'สละสิทธิ์การวางหมากในตานี้'}
           >
-            {soundEnabled ? (
-              <Volume2 className="w-4 h-4 text-amber-400" />
-            ) : (
-              <VolumeX className="w-4 h-4 text-zinc-500" />
-            )}
+            <SkipForward className="w-3.5 h-3.5 text-zinc-400" />
+            <span>ผ่าน (Pass)</span>
           </button>
 
+          {/* Resign */}
           <button
-            onClick={handleExportSgf}
-            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
-            title="ดาวน์โหลด SGF"
+            onClick={onResign}
+            disabled={isGameOver || isAiThinking || isReviewing}
+            data-testid="btn-resign"
+            className="flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-sm font-semibold transition-all shadow-sm"
+            title={isReviewing ? 'ต้องกลับสู่ตาปัจจุบันก่อนจึงจะยอมแพ้ได้' : 'ยอมแพ้ในเกมนี้'}
           >
-            <Download className="w-4 h-4" />
+            <Flag className="w-3.5 h-3.5 text-red-400" />
+            <span>ยอมแพ้ (Resign)</span>
           </button>
         </div>
       </div>

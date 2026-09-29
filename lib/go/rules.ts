@@ -192,6 +192,32 @@ export function createInitialGameState(boardSize: BoardSize = 19): GameState {
 }
 
 /**
+ * Initializes a new GameState with handicap stones placed on star points
+ */
+export function createHandicapGameState(
+  boardSize: BoardSize = 19,
+  handicapPoints: Point[] = []
+): GameState {
+  const initial = createInitialGameState(boardSize);
+  if (!handicapPoints || handicapPoints.length < 2) return initial;
+
+  const nextBoard = cloneBoard(initial.board);
+  for (const pt of handicapPoints) {
+    if (pt.y >= 0 && pt.y < boardSize && pt.x >= 0 && pt.x < boardSize) {
+      nextBoard[pt.y][pt.x] = BLACK;
+    }
+  }
+
+  const hash = boardToHash(nextBoard);
+  return {
+    ...initial,
+    board: nextBoard,
+    turn: WHITE, // In handicap Go, White plays the first move
+    boardHashes: new Set([hash]),
+  };
+}
+
+/**
  * Executes a move, pass, or resignation, returning the new immutable GameState
  */
 export function playMove(
@@ -325,15 +351,16 @@ export function playMove(
 }
 
 /**
- * Undoes the last move, returning the reconstructed prior state
+ * Undoes the last move, returning the reconstructed prior state.
+ * Accepts an optional initialState to faithfully preserve handicap stones across undos.
  */
-export function undoMove(gameState: GameState): GameState {
+export function undoMove(gameState: GameState, initialState?: GameState): GameState {
   if (gameState.history.length === 0) {
     return gameState;
   }
 
   // Replay from initial state to history.length - 1
-  const initial = createInitialGameState(gameState.boardSize);
+  const initial = initialState ?? createInitialGameState(gameState.boardSize);
   const targetHistory = gameState.history.slice(0, -1);
 
   let current = initial;

@@ -21,6 +21,7 @@ Connects the web application to a local KataGo binary via its JSON Analysis Prot
   - `rootInfo.scoreLead`: Net points lead for current player.
   - `rootInfo.winrate`: 0.0 to 1.0 probability of winning.
   - `ownership`: 1D array of 361 values from -1.0 (white control) to 1.0 (black control).
+    - **SIDETOMOVE Polarity Contract:** When `reportAnalysisWinratesAs = SIDETOMOVE`, raw ownership values are relative to `currentPlayer` (+1.0 = currentPlayer territory). `parseKataGoRawResponse` normalizes ownership to Black's perspective by negating all values when `currentPlayer === 'W'`, ensuring downstream consumers always see +1.0 = Black, -1.0 = White.
   - `moveInfos`: Top 3 candidate moves with visit count, scoreLead, winrate, and PV (Principal Variation).
 
 ## Local Setup & Auto-Detection

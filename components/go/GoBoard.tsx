@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CandidateMove, renderGoBoard } from '@/lib/go/board-renderer';
+import { renderGoBoard } from '@/lib/go/board-renderer';
+import { HeatmapMode } from '@/lib/go/history-analysis';
 import { validateMove } from '@/lib/go/rules';
-import { stoneSoundEngine } from '@/lib/go/sound';
 import { EMPTY, GameState, Point } from '@/lib/go/types';
-
-export type { CandidateMove };
 
 interface GoBoardProps {
   gameState: GameState;
@@ -17,7 +15,7 @@ interface GoBoardProps {
   soundEnabled?: boolean;
   boardTheme?: 'wood' | 'slate' | 'minimal';
   ownershipMap?: number[][] | null; // values from -1.0 (white) to 1.0 (black)
-  candidateMoves?: CandidateMove[] | null;
+  heatmapMode?: HeatmapMode;
   className?: string;
 }
 
@@ -30,7 +28,7 @@ export const GoBoard: React.FC<GoBoardProps> = ({
   soundEnabled = true,
   boardTheme = 'wood',
   ownershipMap = null,
-  candidateMoves = null,
+  heatmapMode = 'both',
   className = '',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -41,7 +39,7 @@ export const GoBoard: React.FC<GoBoardProps> = ({
 
   const { board, boardSize, turn, lastMove, isGameOver } = gameState;
 
-  // Responsive container size observer
+  // Responsive container size observer with modern ResizeObserver
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
@@ -54,8 +52,20 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     };
 
     updateSize();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        updateSize();
+      });
+      resizeObserver.observe(containerRef.current);
+    }
+
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
   }, []);
 
   // Board layout geometry with defensive coordinate margin
@@ -115,7 +125,7 @@ export const GoBoard: React.FC<GoBoardProps> = ({
       turn,
       lastMove,
       ownershipMap,
-      candidateMoves,
+      heatmapMode,
       hoverPoint,
       isHoverValid,
       interactive,
@@ -130,7 +140,7 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     showCoordinates,
     lastMove,
     ownershipMap,
-    candidateMoves,
+    heatmapMode,
     hoverPoint,
     isHoverValid,
     turn,
@@ -176,9 +186,6 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     if (board[pt.y][pt.x] === EMPTY) {
       const validation = validateMove(gameState, pt, turn);
       if (validation.valid) {
-        if (soundEnabled) {
-          stoneSoundEngine.playStoneClick();
-        }
         onPlayMove(pt);
       }
     }

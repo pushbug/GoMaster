@@ -19,3 +19,9 @@
 - **Context:** Converting raw KataGo stats into Thai coaching advice requires an LLM with low latency, high reasoning quality, and cost efficiency.
 - **Decision:** Use Gemini Flash API through a server-side route `/api/coach-explain` with structured JSON schema outputs.
 - **Consequences:** Keeps `GEMINI_API_KEY` protected on server; Gemini Flash provides sub-second responses suitable for interactive move-by-move coaching.
+
+### ADR 005: Handicap Undo State Preservation & Hook Decomposition
+- **Context:** Replaying moves from an empty board stripped handicap stones on undo, and `useGoGame.ts` was becoming a monolithic hook handling unrelated concerns.
+- **Decision:** Extract pure domain handicap calculations into `lib/go/handicap.ts`, update `undoMove` to accept initial states, restore undos from `historySnapshots` in O(1), and isolate step review/keyboard navigation in `useReplayNavigation`.
+- **Consequences:** Solves handicap undo regressions, decouples domain logic from React UI, and eliminates duplicate audio triggers.
+

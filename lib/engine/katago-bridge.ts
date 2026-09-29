@@ -45,13 +45,15 @@ export function parseKataGoRawResponse(
   ) / 10;
 
   // Convert 1D ownership array (length = boardSize * boardSize) to 2D [y][x] grid
+  // Normalize to Black's perspective: +1.0 = Black territory, -1.0 = White territory.
+  // Under SIDETOMOVE, raw values are relative to currentPlayer, so negate when White to move.
   const ownershipGrid: number[][] = [];
+  const ownershipSign = isBlackToMove ? 1 : -1;
   if (raw.ownership && raw.ownership.length === boardSize * boardSize) {
     for (let y = 0; y < boardSize; y++) {
       const row: number[] = [];
       for (let x = 0; x < boardSize; x++) {
-        // KataGo ownership is 1.0 (Black) to -1.0 (White)
-        row.push(raw.ownership[y * boardSize + x] ?? 0);
+        row.push((raw.ownership[y * boardSize + x] ?? 0) * ownershipSign);
       }
       ownershipGrid.push(row);
     }

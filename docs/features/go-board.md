@@ -4,7 +4,7 @@
 The Go Board is the central visual element of GoMaster. It supports 19x19, 13x13, and 9x9 grids with realistic stone rendering and responsive layout.
 
 ## Visual Design
-- **Wood Texture:** Kaya wood tone (`#DCB35C`) with subtle border frame.
+- **Wood Texture:** Kaya wood tone (`#DCB35C`) with clean single-border perimeter.
 - **Grid & Star Points:** Star points (Hoshi) at standard positions:
   - 19x19: (3,3), (9,3), (15,3), (3,9), (9,9), (15,9), (3,15), (9,15), (15,15).
   - 13x13: (3,3), (9,3), (6,6), (3,9), (9,9).
@@ -13,7 +13,9 @@ The Go Board is the central visual element of GoMaster. It supports 19x19, 13x13
 - **Stones:** Radial gradient shading for 3D depth, soft drop shadow.
 - **Last Move Marker:** Small contrasting ring/dot on the most recently placed stone.
 - **Ghost Stone Preview:** Translucent preview of current player's stone following cursor over valid empty points.
-- **Audio Feedback:** Synthesized wood-click audio using Web Audio API on valid move placement.
+- **Audio Feedback:** Single source of truth synthesized wood-click audio using Web Audio API on valid move placement via `useGoGame`.
+- **Responsive Architecture:** Dynamic canvas rendering scaling smoothly down to 360px viewports via `ResizeObserver` with automatic disconnect cleanup.
+- **Replay & Navigation:** State and keyboard shortcuts (ArrowLeft/Right/Home/End) isolated in `lib/hooks/useReplayNavigation.ts`.
 
 ## Props & State Interface
 ```typescript
@@ -24,6 +26,5 @@ interface GoBoardProps {
   lastMove?: Point | null;
   interactive?: boolean;
   ownershipMap?: number[][]; // -1.0 to 1.0
-  candidateMoves?: CandidateMove[];
 }
 ```
