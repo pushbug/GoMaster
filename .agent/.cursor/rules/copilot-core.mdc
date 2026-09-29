@@ -1,0 +1,58 @@
+---
+description: Co-pilot phase gate, session protocol, and skill routing for GoMaster Web.
+alwaysApply: true
+---
+
+# Co-Pilot Core (v4.1 - GoMaster Web)
+
+## Command gate
+Prefixes: `.grill` `.consult` `.plan` `.dev` `.scrutinize` `.debug` `.done`
+
+No prefix → ask for command only. No reads, code, tests, or edits.
+Auto-trigger exception: `.debug` may be spawned internally by the `.dev` self-heal loop only. A user message describing a bug WITHOUT a `.debug` prefix still hits this gate — ask for the command.
+
+Flow: [`.consult`]* -> [`.grill` (360° Pre-Mortem)]* -> `.plan` -> `.dev` -> [`.debug`]* -> `.scrutinize` -> `.done`
+
+- `.grill` enforces the **Lens Priority Hierarchy** (Tier 1 AppSec/Data -> Tier 2 State/Resilience -> Tier 3 Scope/Design) to prioritize the top 3-5 critical risks and prevent LLM subjective bias.
+
+Shorthand conventions for `.scrutinize`:
+- `.scrutinize ตรวจแผน` (or `.scrutinize plan`): Audits `docs/current_plan.md` using the 5-point Plan Audit Checklist. Silently enforces the **Strict Plan Syntax Contract** in background (mandatory `- [ ]` task checkboxes, Regex invariant `^- \[ \] Step [1-7]: .+ -> Verify: .+$`, deterministic verification commands, and sequential step ordering), rejecting immediately on breach. Evaluates functional Test Strategy & Coverage (Unit/Component/E2E), 9arm Plan Failure Modes, & Universal AppSec boundaries, appending an actionable Advisory block (`💡 ข้อเสนอแนะ & จุดสังเกต Failure Modes`).
+- `.scrutinize ตรวจโค้ด` (or `.scrutinize dev`/`code`): Audits git diff and test assertions using the 5-point Dev Audit Checklist, runs 9arm Code Failure Mode checks and Universal AppSec scans (zero hardcoded secrets, server-side Gemini key protection, unmounted context, race conditions), and appends an Advisory block.
+- Bare `.scrutinize`: Auto-detects target based on plan and git diff state.
+
+## Explicit Invocation Policy
+- **`user-invoked`:** `.grill`, `.consult`, `.plan`, `.dev`, `.scrutinize`, `.done`. Strictly manual; AI cannot invoke or chain autonomously.
+- **`model-invoked`:** Autonomous sub-routines (e.g. `testing`). Consulted automatically by AI when matching domain scope.
+- **`hybrid-invoked`:** `.debug` (user-invoked + authorized `.dev` self-heal auto-spawn).
+
+## Communication
+- Chat replies to the user: Thai, concise, easy to follow. Explain just enough.
+- All written artifacts (docs, plans, code, comments, commit msgs): English only — token efficiency. Write for the AI to re-read, not for the user.
+- **Two-layer output** (scrutinize, debug, coding, and any phase that reports findings to the user):
+  - **Layer 1 — สรุป (ไทย):** 1–2 sentences in plain language + options if applicable. No deep jargon. For the human.
+  - **Layer 2 — [for AI] Technical:** Compact block with `file:line`, root cause, fix path. For the next AI turn to act precisely. Always after Layer 1.
+- **Next Command Directive:** All `.consult` Layer 1 replies must conclude with a mandatory single-line directive instructing the human on the exact next dot-command to run (.plan, .grill, .scrutinize, or no action needed).
+
+## Global
+- No browser_subagent unless requested.
+- `.dev` must not edit `docs/session.md` or delete `docs/current_plan.md`.
+- **UNIVERSAL APPSEC:** All plans and diffs across Web, Engine, and Backend must adhere to the Universal AppSec 4 Pillars: (1) Zero client-side hardcoded secrets/keys (`GEMINI_API_KEY` on server only), (2) Encrypted storage at rest for tokens/PII, (3) Strict sanitization for external inputs (SGF/coordinates), and (4) Strict compile-time gating for admin/debug tooling.
+- **ENGINE & SERVICE SAFETY:** Tests (`npm test`) must NEVER spawn real KataGo subprocesses or invoke real Google Gemini API quotas. Always inject mock or fake delegates when running automated tests.
+- **SKILL SYNC:** If any file under `.agent/skills/` or `.agent/AGENTS.md` is modified, mirror the change in `.agent/.cursor/skills/` or `.agent/.cursor/rules/` — and vice versa. Both tool configs must stay in logical parity.
+
+## Session anchor
+On the first phase command of a new session (once only): read `docs/INDEX.md` + `docs/session.md`, confirm status. Missing session → notify, await `.plan`.
+`.consult` and `.grill` are read-only / conversational — they read docs to evaluate context but never mutate state or files. Session anchor applies.
+
+## Phase routing
+Read skills at `.agent/skills/{name}/SKILL.md`, then docs per skill. Never read legacy monoliths — use INDEX routing only.
+
+| Phase | Skills | Docs |
+|-------|--------|------|
+| `.grill` | grill | INDEX, roadmap, prd, decisions; feature docs if grilling a specific domain |
+| `.consult` | consult | INDEX, session; then any docs/source files needed to answer |
+| `.plan` | plan, testing | INDEX, prd, design, decisions; feature + test docs per plan skill |
+| `.dev` | coding | current_plan; compliance (safety contract — always); core/feature docs listed in plan |
+| `.debug` | debug | data-flow, dependencies; +danger-zones if state/timer/pipe bug |
+| `.scrutinize` | scrutinize, testing | current_plan (test IDs first); tests/OVERVIEW; tests/CATALOG only if IDs missing or cross-feature; feature/core docs of changed files |
+| `.done` | handoff | INDEX, session; append new decisions to decisions.md; update affected feature/core/test docs |

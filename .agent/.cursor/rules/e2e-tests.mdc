@@ -1,0 +1,13 @@
+---
+description: Web Unit, Component, and E2E Test conventions for GoMaster
+globs: tests/**/*.{ts,tsx,js}
+alwaysApply: false
+---
+
+# GoMaster Tests
+
+- Selectors: Provide explicit `data-testid="..."` on interactive board intersections, buttons, and evaluation panels.
+- Test IDs: Register test cases in `docs/tests/CATALOG.md` before `.plan` closes.
+- Test observable behavior and board states, not private implementation details.
+- Fix production code under `.dev`; never weaken assertions to pass.
+- Engine Isolation: Mock KataGo processes and Gemini API endpoints in automated test suites.

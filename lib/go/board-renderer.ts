@@ -1,0 +1,433 @@
+import { COLUMN_LETTERS, getStarPoints } from './board';
+import { BLACK, BoardSize, EMPTY, Point, Stone, WHITE } from './types';
+
+export interface CandidateMove {
+  point: Point;
+  winrate: number; // 0 to 100
+  scoreLead: number;
+  visits?: number;
+  rank?: number; // 1 = best
+}
+
+export interface BoardThemeColors {
+  background: string;
+  gridLine: string;
+  starPoint: string;
+  coordText: string;
+  border: string;
+}
+
+export interface BoardRenderParams {
+  ctx: CanvasRenderingContext2D;
+  displaySize: number;
+  dpr: number;
+  boardSize: BoardSize;
+  board: Stone[][];
+  boardTheme: 'wood' | 'slate' | 'minimal';
+  showCoordinates: boolean;
+  coordMargin: number;
+  boardAreaSize: number;
+  cellSize: number;
+  stoneRadius: number;
+  turn: Stone;
+  lastMove: Point | null;
+  ownershipMap?: number[][] | null;
+  candidateMoves?: CandidateMove[] | null;
+  hoverPoint: Point | null;
+  isHoverValid: boolean;
+  interactive: boolean;
+  showGhostStone: boolean;
+  isGameOver: boolean;
+}
+
+/**
+ * Calculates canvas pixel position from board grid coordinates
+ */
+export function getCanvasCoords(
+  x: number,
+  y: number,
+  coordMargin: number,
+  cellSize: number
+): { cx: number; cy: number } {
+  return {
+    cx: coordMargin + x * cellSize,
+    cy: coordMargin + y * cellSize,
+  };
+}
+
+/**
+ * Draws the board background texture, gradient, and outer bevel border
+ */
+export function drawBoardBackground(
+  ctx: CanvasRenderingContext2D,
+  displaySize: number,
+  boardTheme: 'wood' | 'slate' | 'minimal',
+  coordMargin: number,
+  boardAreaSize: number
+): void {
+  if (boardTheme === 'wood') {
+    const woodGrad = ctx.createLinearGradient(0, 0, displaySize, displaySize);
+    woodGrad.addColorStop(0, '#e8c078');
+    woodGrad.addColorStop(0.5, '#deb066');
+    woodGrad.addColorStop(1, '#d4a456');
+    ctx.fillStyle = woodGrad;
+  } else if (boardTheme === 'slate') {
+    ctx.fillStyle = '#27272a'; // zinc-800
+  } else {
+    ctx.fillStyle = '#f4f4f5'; // zinc-100
+  }
+  ctx.fillRect(0, 0, displaySize, displaySize);
+
+  // Outer subtle wood bevel/border
+  ctx.strokeStyle = boardTheme === 'wood' ? '#8a6224' : '#3f3f46';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(coordMargin - 4, coordMargin - 4, boardAreaSize + 8, boardAreaSize + 8);
+}
+
+/**
+ * Draws alphanumeric coordinates (A-T without I, and 1-N) around the board edges
+ */
+export function drawCoordinates(
+  ctx: CanvasRenderingContext2D,
+  displaySize: number,
+  boardSize: BoardSize,
+  boardTheme: 'wood' | 'slate' | 'minimal',
+  coordMargin: number,
+  cellSize: number
+): void {
+  ctx.font = `600 ${Math.max(10, Math.floor(cellSize * 0.36))}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = boardTheme === 'slate' ? '#a1a1aa' : '#573d1c';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const labelOffset = Math.round(coordMargin * 0.38);
+
+  for (let i = 0; i < boardSize; i++) {
+    const { cx, cy } = getCanvasCoords(i, i, coordMargin, cellSize);
+    const colLetter = COLUMN_LETTERS[i];
+    const rowNum = String(boardSize - i);
+
+    // Top & Bottom Column Letters
+    ctx.fillText(colLetter, cx, labelOffset);
+    ctx.fillText(colLetter, cx, displaySize - labelOffset);
+
+    // Left & Right Row Numbers
+    ctx.fillText(rowNum, labelOffset, cy);
+    ctx.fillText(rowNum, displaySize - labelOffset, cy);
+  }
+}
+
+/**
+ * Draws grid lines and star points (hoshi)
+ */
+export function drawGridAndStars(
+  ctx: CanvasRenderingContext2D,
+  boardSize: BoardSize,
+  boardTheme: 'wood' | 'slate' | 'minimal',
+  coordMargin: number,
+  cellSize: number
+): void {
+  // Grid Lines
+  ctx.strokeStyle = boardTheme === 'slate' ? '#52525b' : '#452f13';
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < boardSize; i++) {
+    const pStart = getCanvasCoords(i, 0, coordMargin, cellSize);
+    const pEnd = getCanvasCoords(i, boardSize - 1, coordMargin, cellSize);
+    ctx.beginPath();
+    ctx.moveTo(pStart.cx, pStart.cy);
+    ctx.lineTo(pEnd.cx, pEnd.cy);
+    ctx.stroke();
+
+    const hStart = getCanvasCoords(0, i, coordMargin, cellSize);
+    const hEnd = getCanvasCoords(boardSize - 1, i, coordMargin, cellSize);
+    ctx.beginPath();
+    ctx.moveTo(hStart.cx, hStart.cy);
+    ctx.lineTo(hEnd.cx, hEnd.cy);
+    ctx.stroke();
+  }
+
+  // Star Points (Hoshi)
+  const starPoints = getStarPoints(boardSize);
+  ctx.fillStyle = boardTheme === 'slate' ? '#71717a' : '#3d2910';
+  const starRadius = boardSize === 19 ? 3.5 : 3;
+
+  for (const pt of starPoints) {
+    const { cx, cy } = getCanvasCoords(pt.x, pt.y, coordMargin, cellSize);
+    ctx.beginPath();
+    ctx.arc(cx, cy, starRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Draws KataGo territory ownership heatmap boxes
+ */
+export function drawOwnershipHeatmap(
+  ctx: CanvasRenderingContext2D,
+  ownershipMap: number[][],
+  boardSize: BoardSize,
+  coordMargin: number,
+  cellSize: number
+): void {
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      const val = ownershipMap[y]?.[x] ?? 0;
+      if (Math.abs(val) > 0.05) {
+        const { cx, cy } = getCanvasCoords(x, y, coordMargin, cellSize);
+        const boxR = cellSize * 0.42;
+        ctx.fillStyle =
+          val > 0
+            ? `rgba(0, 0, 0, ${Math.min(0.6, val * 0.6)})`
+            : `rgba(255, 255, 255, ${Math.min(0.6, -val * 0.6)})`;
+        ctx.fillRect(cx - boxR, cy - boxR, boxR * 2, boxR * 2);
+      }
+    }
+  }
+}
+
+/**
+ * Draws a single Go stone with realistic drop shadow and 3D radial lighting
+ */
+export function drawStone(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  stoneRadius: number,
+  stoneColor: Stone,
+  opacity = 1
+): void {
+  ctx.save();
+  ctx.globalAlpha = opacity;
+
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+  ctx.shadowBlur = Math.max(3, stoneRadius * 0.25);
+  ctx.shadowOffsetX = stoneRadius * 0.1;
+  ctx.shadowOffsetY = stoneRadius * 0.15;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, stoneRadius, 0, Math.PI * 2);
+
+  if (stoneColor === BLACK) {
+    // Black Stone with subtle top-left radial reflection
+    const grad = ctx.createRadialGradient(
+      cx - stoneRadius * 0.3,
+      cy - stoneRadius * 0.35,
+      stoneRadius * 0.1,
+      cx,
+      cy,
+      stoneRadius
+    );
+    grad.addColorStop(0, '#404040');
+    grad.addColorStop(0.4, '#1c1c1c');
+    grad.addColorStop(1, '#0a0a0a');
+    ctx.fillStyle = grad;
+  } else {
+    // White Stone with soft pearlescent shell gradient
+    const grad = ctx.createRadialGradient(
+      cx - stoneRadius * 0.3,
+      cy - stoneRadius * 0.35,
+      stoneRadius * 0.1,
+      cx,
+      cy,
+      stoneRadius
+    );
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.7, '#f4f4f5');
+    grad.addColorStop(1, '#d4d4d8');
+    ctx.fillStyle = grad;
+  }
+
+  ctx.fill();
+
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Outline ring for white stones
+  if (stoneColor === WHITE) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws all placed stones on the board
+ */
+export function drawStones(
+  ctx: CanvasRenderingContext2D,
+  board: Stone[][],
+  boardSize: BoardSize,
+  coordMargin: number,
+  cellSize: number,
+  stoneRadius: number
+): void {
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      const stone = board[y][x];
+      if (stone !== EMPTY) {
+        const { cx, cy } = getCanvasCoords(x, y, coordMargin, cellSize);
+        drawStone(ctx, cx, cy, stoneRadius, stone);
+      }
+    }
+  }
+}
+
+/**
+ * Draws last-move indicator ring
+ */
+export function drawLastMoveMarker(
+  ctx: CanvasRenderingContext2D,
+  lastMove: Point,
+  board: Stone[][],
+  coordMargin: number,
+  cellSize: number,
+  stoneRadius: number
+): void {
+  if (board[lastMove.y]?.[lastMove.x] === EMPTY) return;
+
+  const { cx, cy } = getCanvasCoords(lastMove.x, lastMove.y, coordMargin, cellSize);
+  const isBlack = board[lastMove.y][lastMove.x] === BLACK;
+  const markerRadius = stoneRadius * 0.38;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, markerRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = isBlack ? '#ffffff' : '#09090b';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+}
+
+/**
+ * Draws KataGo candidate moves overlay badges
+ */
+export function drawCandidateMoves(
+  ctx: CanvasRenderingContext2D,
+  candidateMoves: CandidateMove[],
+  coordMargin: number,
+  cellSize: number,
+  stoneRadius: number
+): void {
+  candidateMoves.forEach((cand, idx) => {
+    const { cx, cy } = getCanvasCoords(cand.point.x, cand.point.y, coordMargin, cellSize);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, stoneRadius * 0.85, 0, Math.PI * 2);
+    ctx.fillStyle = idx === 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(59, 130, 246, 0.65)';
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.floor(cellSize * 0.3)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${Math.round(cand.winrate)}%`, cx, cy);
+    ctx.restore();
+  });
+}
+
+/**
+ * Draws ghost stone preview on hover or red cross if invalid move
+ */
+export function drawGhostStone(
+  ctx: CanvasRenderingContext2D,
+  hoverPoint: Point,
+  isHoverValid: boolean,
+  turn: Stone,
+  coordMargin: number,
+  cellSize: number,
+  stoneRadius: number
+): void {
+  const { cx, cy } = getCanvasCoords(hoverPoint.x, hoverPoint.y, coordMargin, cellSize);
+
+  if (isHoverValid) {
+    drawStone(ctx, cx, cy, stoneRadius, turn, 0.5);
+  } else {
+    // Red cross / invalid indicator
+    const crossSize = stoneRadius * 0.5;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - crossSize, cy - crossSize);
+    ctx.lineTo(cx + crossSize, cy + crossSize);
+    ctx.moveTo(cx + crossSize, cy - crossSize);
+    ctx.lineTo(cx - crossSize, cy + crossSize);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/**
+ * Main coordinator that executes complete Canvas 2D render pipeline
+ */
+export function renderGoBoard(params: BoardRenderParams): void {
+  const {
+    ctx,
+    displaySize,
+    dpr,
+    boardSize,
+    board,
+    boardTheme,
+    showCoordinates,
+    coordMargin,
+    boardAreaSize,
+    cellSize,
+    stoneRadius,
+    turn,
+    lastMove,
+    ownershipMap,
+    candidateMoves,
+    hoverPoint,
+    isHoverValid,
+    interactive,
+    showGhostStone,
+    isGameOver,
+  } = params;
+
+  ctx.clearRect(0, 0, displaySize * dpr, displaySize * dpr);
+
+  // 1. Board Background & Bevel
+  drawBoardBackground(ctx, displaySize, boardTheme, coordMargin, boardAreaSize);
+
+  // 2. Coordinate Labels
+  if (showCoordinates) {
+    drawCoordinates(ctx, displaySize, boardSize, boardTheme, coordMargin, cellSize);
+  }
+
+  // 3. Grid Lines & Star Points
+  drawGridAndStars(ctx, boardSize, boardTheme, coordMargin, cellSize);
+
+  // 4. KataGo Ownership Heatmap
+  if (ownershipMap) {
+    drawOwnershipHeatmap(ctx, ownershipMap, boardSize, coordMargin, cellSize);
+  }
+
+  // 5. Placed Stones
+  drawStones(ctx, board, boardSize, coordMargin, cellSize, stoneRadius);
+
+  // 6. Last Move Marker
+  if (lastMove) {
+    drawLastMoveMarker(ctx, lastMove, board, coordMargin, cellSize, stoneRadius);
+  }
+
+  // 7. Candidate Moves Badges
+  if (candidateMoves && candidateMoves.length > 0) {
+    drawCandidateMoves(ctx, candidateMoves, coordMargin, cellSize, stoneRadius);
+  }
+
+  // 8. Ghost Stone Hover Preview
+  if (
+    interactive &&
+    showGhostStone &&
+    !isGameOver &&
+    hoverPoint &&
+    board[hoverPoint.y]?.[hoverPoint.x] === EMPTY
+  ) {
+    drawGhostStone(ctx, hoverPoint, isHoverValid, turn, coordMargin, cellSize, stoneRadius);
+  }
+}

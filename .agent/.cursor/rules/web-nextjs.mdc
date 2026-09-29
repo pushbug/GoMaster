@@ -1,0 +1,17 @@
+---
+description: Next.js, React, TypeScript, and Go Engine conventions
+globs: **/*.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# Next.js, React & Go Engine Architecture
+
+- Read target file before write. Touch only scoped files; no drive-by refactors.
+- Match existing imports, naming, component structures, and React hook patterns 1:1.
+- Minimum code for spec; no speculative abstractions or single-use helpers.
+- Comments: only for non-obvious intent, Go rules (liberties/ko/suicide), trade-offs, or safety guards. English only.
+- Run `npm run lint` and `npx tsc --noEmit` after edits. Run `npm test` for affected unit/component specs.
+- **UI Components & Dynamic Theme:** Always use Tailwind CSS semantic classes and CSS variables to support Dark and Light mode.
+- **Defensive Layout & Zero-Overflow Policy:** Ensure responsive adaptation across viewport widths down to 360px without canvas distortion or broken flex rows.
+- **State Management:** Keep board state immutable; separate board history/tree from analysis metrics.
+- **Resource Cleanup:** Dispose Web Audio contexts, AnimationFrames, and child process streams on unmount.
