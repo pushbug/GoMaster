@@ -149,4 +149,123 @@ describe('Gemini 9-Dan Coach Layer (COACH-PROMPT-01, COACH-FALLBACK-01, COACH-AP
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('COACH-INTENT-01: Analyzes opponent move intent and categorizes tactical suggested move', () => {
+    const advice = generateFallbackCoachAdvice({
+      ...sampleRequest,
+      moveNumber: 14,
+      lastMove: { color: 'W', coord: 'C14' },
+    });
+
+    expect(advice.opponentMoveIntent).toBeDefined();
+    expect(advice.opponentMoveIntent).toContain('C14');
+    expect(advice.suggestedMoveCategory).toBe('solid');
+    expect(advice.suggestedMoveCategoryThai).toContain('ถอย');
+  });
+
+  it('COACH-INTENT-02: Differentiates player own move from opponent move in intent description', () => {
+    // When last move was player's own move (Black playing Black)
+    const playerMoveAdvice = generateFallbackCoachAdvice({
+      ...sampleRequest,
+      moveNumber: 1,
+      playerColor: 'B',
+      lastMove: { color: 'B', coord: 'Q4' },
+    });
+
+    expect(playerMoveAdvice.opponentMoveIntent).toContain('ผู้เรียนเพิ่งเดินที่ Q4');
+    expect(playerMoveAdvice.opponentMoveIntent).not.toContain('คู่แข่งเล่นที่');
+  });
+
+  it('COACH-CANDIDATE-EXP-01: Generates dynamic candidate explanations with purpose and impacts (COACH-CANDIDATE-EXP-01)', () => {
+    const candidateReq: CoachAdviceRequest = {
+      ...sampleRequest,
+      candidates: [
+        { coord: 'D16', winrate: 55, scoreLead: 1.5, scoreLoss: 0, rank: 1, pv: ['D16', 'Q4'] },
+        { coord: 'Q16', winrate: 53, scoreLead: 0.8, scoreLoss: 0.7, rank: 2, pv: ['Q16'] },
+        { coord: 'K10', winrate: 48, scoreLead: -0.5, scoreLoss: 2.0, rank: 3, pv: ['K10'] },
+      ],
+    };
+
+    const advice = generateFallbackCoachAdvice(candidateReq);
+    expect(advice.candidateExplanations).toBeDefined();
+    expect(advice.candidateExplanations?.length).toBe(3);
+
+    const first = advice.candidateExplanations![0];
+    expect(first.coord).toBe('D16');
+    expect(first.rank).toBe(1);
+    expect(first.tagThai).toContain('ดีที่สุด');
+    expect(first.purpose).toBeDefined();
+    expect(first.selfImpact).toBeDefined();
+    expect(first.opponentImpact).toBeDefined();
+
+    const second = advice.candidateExplanations![1];
+    expect(second.coord).toBe('Q16');
+    expect(second.rank).toBe(2);
+    expect(second.tagThai).toContain('หนาแน่น');
+
+    const third = advice.candidateExplanations![2];
+    expect(third.coord).toBe('K10');
+    expect(third.rank).toBe(3);
+    expect(third.tagThai).toContain('บุก');
+  });
+
+  it('COACH-CANDIDATE-EXP-02: Parses candidateExplanations from Gemini Flash API payload', async () => {
+    const mockApiResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  initiative: 'Sente',
+                  initiativeThai: 'เซ็นเตะ (ได้จังหวะบุกก่อน)',
+                  evaluationTitle: 'ทดสอบคำอธิบาย 3 ทางเลือก',
+                  tacticalAdvice: 'ภาพรวมดี',
+                  keyConcept: 'ยึดมุมก่อน',
+                  suggestedAction: 'เดิน D16',
+                  candidateExplanations: [
+                    {
+                      coord: 'D16',
+                      rank: 1,
+                      tagThai: '⭐ ทางเลือก 1: ดีที่สุด (Best)',
+                      purpose: 'เพื่อสร้างฐานมุม',
+                      selfImpact: 'กลุ่มมุมรอดปลอดภัย',
+                      opponentImpact: 'บีบให้คู่แข่งถอยไปตั้งรับ',
+                    },
+                    {
+                      coord: 'Q16',
+                      rank: 2,
+                      tagThai: '🏃 ทางเลือก 2: เน้นหนาแน่น (Solid)',
+                      purpose: 'เชื่อมกลุ่มขวา',
+                      selfImpact: 'เพิ่มลมหายใจ',
+                      opponentImpact: 'ลดการบุกของคู่แข่ง',
+                    },
+                  ],
+                }),
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockApiResponse,
+    });
+
+    try {
+      const advice = await callGeminiFlashCoach(sampleRequest, 'dummy_test_key');
+
+      expect(advice.isAiGenerated).toBe(true);
+      expect(advice.candidateExplanations).toBeDefined();
+      expect(advice.candidateExplanations?.length).toBe(2);
+      expect(advice.candidateExplanations![0].purpose).toBe('เพื่อสร้างฐานมุม');
+      expect(advice.candidateExplanations![0].selfImpact).toBe('กลุ่มมุมรอดปลอดภัย');
+      expect(advice.candidateExplanations![0].opponentImpact).toBe('บีบให้คู่แข่งถอยไปตั้งรับ');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

@@ -4,12 +4,10 @@ import React from 'react';
 import { CoachAdviceResponse } from '@/lib/coach/gemini-coach';
 import {
   BrainCircuit,
-  Compass,
   Lightbulb,
   Loader2,
   Sparkles,
   Target,
-  Trophy,
   Zap,
 } from 'lucide-react';
 
@@ -30,19 +28,6 @@ export const CoachAdviceCard: React.FC<CoachAdviceCardProps> = ({
   onRequestAdvice,
   className = '',
 }) => {
-  const getInitiativeStyle = (initiative?: 'Sente' | 'Gote' | 'Tenuki') => {
-    switch (initiative) {
-      case 'Sente':
-        return 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40';
-      case 'Gote':
-        return 'bg-amber-950/40 text-amber-300 border-amber-800/40';
-      case 'Tenuki':
-        return 'bg-purple-950/40 text-purple-300 border-purple-800/40';
-      default:
-        return 'bg-zinc-950/40 text-zinc-400 border-zinc-800/60';
-    }
-  };
-
   return (
     <div
       className={`p-4 rounded-2xl bg-linear-to-b from-zinc-900 to-zinc-900/90 border border-zinc-800 text-zinc-200 shadow-xl flex flex-col gap-3 relative overflow-hidden ${className}`}
@@ -88,7 +73,7 @@ export const CoachAdviceCard: React.FC<CoachAdviceCardProps> = ({
               {onRequestAdvice && (
                 <button
                   onClick={onRequestAdvice}
-                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-amber-400 transition-colors"
+                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer"
                   title="ขอคำแนะนำใหม่อีกครั้ง"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -102,9 +87,16 @@ export const CoachAdviceCard: React.FC<CoachAdviceCardProps> = ({
             </p>
 
             {advice.suggestedAction && (
-              <div className="flex items-center gap-2 text-sm text-amber-200/90 pt-1.5 border-t border-zinc-800/60">
-                <Target className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="font-medium">{advice.suggestedAction}</span>
+              <div className="flex items-center justify-between gap-2 text-sm text-amber-200/90 pt-1.5 border-t border-zinc-800/60">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Target className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="font-medium truncate">{advice.suggestedAction}</span>
+                </div>
+                {advice.suggestedMoveCategoryThai && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 shrink-0 font-medium">
+                    {advice.suggestedMoveCategoryThai}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -123,23 +115,6 @@ export const CoachAdviceCard: React.FC<CoachAdviceCardProps> = ({
               </div>
             </div>
           )}
-
-          {/* Bottom Badges: Initiative & Target Goal */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div
-              className={`p-2.5 rounded-lg border flex items-center gap-1.5 font-medium ${getInitiativeStyle(
-                advice.initiative
-              )}`}
-            >
-              <Compass className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{advice.initiativeThai}</span>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-zinc-950/40 border border-zinc-800/60 flex items-center gap-1.5 text-zinc-300 font-medium">
-              <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>เป้าหมาย: สู่ระดับ 1 ดั้ง</span>
-            </div>
-          </div>
         </div>
       ) : (
         /* Welcome / Default State */

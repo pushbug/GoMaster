@@ -1,16 +1,20 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { CandidateMovesCard } from '@/components/go/CandidateMovesCard';
 import { CoachAdviceCard } from '@/components/go/CoachAdviceCard';
 import { EngineStatusBadge } from '@/components/go/EngineStatusBadge';
 import { EvaluationBar } from '@/components/go/EvaluationBar';
+import { GamePhaseBar } from '@/components/go/GamePhaseBar';
 import { GoBoard } from '@/components/go/GoBoard';
 import { GoControls } from '@/components/go/GoControls';
 import { MatchHistoryModal } from '@/components/go/MatchHistoryModal';
 import { MoveHistoryPanel } from '@/components/go/MoveHistoryPanel';
 import { getHandicapPoints, NewGameConfig, NewGameModal } from '@/components/go/NewGameModal';
+import { OpponentMoveCard } from '@/components/go/OpponentMoveCard';
+import { VictoryModal } from '@/components/go/VictoryModal';
 import { pointToString } from '@/lib/go/board';
-import { getNextHeatmapMode, HeatmapMode } from '@/lib/go/history-analysis';
+import { calculateMoveScoreDelta, getNextHeatmapMode, HeatmapMode } from '@/lib/go/history-analysis';
 import { useGoGame } from '@/lib/hooks/useGoGame';
 import { History, Layers, PlusCircle, Sparkles } from 'lucide-react';
 
@@ -45,9 +49,20 @@ export default function HomePage() {
     isAiThinking,
     analysis,
     scoreLeadHistory,
+    winrateHistory,
     coachAdvice,
     isCoachLoading,
+    previewCandidateCoord,
+    setPreviewCandidateCoord,
+    previewPvCoords,
+    setPreviewPvCoords,
     isEngineMock,
+    deadStonesSummary,
+    showDeadStones,
+    toggleShowDeadStones,
+    effectiveDeadStoneKeys,
+    isVictoryModalOpen,
+    setIsVictoryModalOpen,
     handlePlayMove,
     handlePass,
     handleResign,
@@ -83,6 +98,33 @@ export default function HomePage() {
     [gameState.boardSize, gameMode, playerColor, selectedRank, handicap, komi, boardTheme, soundEnabled]
   );
 
+  // Synchronize EvaluationBar during replay review vs live game
+  const isReplayActive = isReviewing && reviewStep !== null;
+  const clampedReviewIndex = isReplayActive
+    ? Math.min(Math.max(0, reviewStep), Math.max(0, winrateHistory.length - 1))
+    : 0;
+
+  const displayWinrate = isReplayActive
+    ? (winrateHistory[clampedReviewIndex] ?? 50.0)
+    : (analysis?.winrate ?? 50.0);
+
+  const displayScoreLead = isReplayActive
+    ? (scoreLeadHistory[clampedReviewIndex] ?? 0.0)
+    : (analysis?.scoreLead ?? 0.0);
+
+  const displayIsGameOver = isReplayActive ? false : gameState.isGameOver;
+  const displayWinner = isReplayActive ? null : gameState.winner;
+  const displayResignReason = isReplayActive ? null : gameState.resignReason;
+
+  const lastMoveRecord = displayGameState.history.length > 0
+    ? displayGameState.history[displayGameState.history.length - 1]
+    : null;
+
+  const opponentScoreDelta = useMemo(() => {
+    if (!lastMoveRecord) return null;
+    return calculateMoveScoreDelta(lastMoveRecord.moveNumber, lastMoveRecord.color, scoreLeadHistory);
+  }, [lastMoveRecord, scoreLeadHistory]);
+
   return (
     <main className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
       {/* 1. Top Navigation Bar */}
@@ -96,10 +138,16 @@ export default function HomePage() {
               <h1 className="text-lg font-black tracking-tight bg-linear-to-r from-zinc-100 via-zinc-200 to-amber-400 bg-clip-text text-transparent">
                 GoMaster
               </h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <span
+                data-testid="logo-target-badge"
+                className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              >
                 1 Dan Target
               </span>
             </div>
+            <p className="text-[11px] text-zinc-400 font-normal leading-tight hidden sm:block">
+              ก้าวสู่ 1 ดั้ง ด้วยพลัง KataGo + AI Sensei
+            </p>
           </div>
         </div>
 
@@ -143,14 +191,14 @@ export default function HomePage() {
       </header>
 
       {/* 2. Workspace Body */}
-      <div className="flex-1 max-w-[1700px] w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="flex-1 max-w-[1700px] w-full mx-auto p-3 lg:px-6 lg:py-4 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Interactive Go Board & Evaluation Surroundings (8 Cols) */}
-        <div className="lg:col-span-8 flex flex-col items-center justify-center bg-zinc-900/30 p-4 sm:p-6 rounded-3xl border border-zinc-800/60 shadow-2xl relative">
-          <div className="w-full max-w-[min(100%,75vh)] flex flex-col items-center gap-3.5">
+        <div className="lg:col-span-8 flex flex-col items-center justify-center relative">
+          <div className="w-full max-w-[min(100%,calc(100vh-230px))] flex flex-col items-center gap-2.5">
             {/* Top of Board: Evaluation Bar with Dual-Player Identity Badges */}
             <EvaluationBar
-              winrate={analysis?.winrate ?? 50.0}
-              scoreLead={analysis?.scoreLead ?? 0.0}
+              winrate={displayWinrate}
+              scoreLead={displayScoreLead}
               ownershipGrid={analysis?.ownershipGrid}
               captures={displayGameState.captures}
               komi={komi}
@@ -170,9 +218,9 @@ export default function HomePage() {
                   ? displayGameState.history[displayGameState.history.length - 1].color
                   : null
               }
-              isGameOver={gameState.isGameOver}
-              winner={gameState.winner}
-              resignReason={gameState.resignReason}
+              isGameOver={displayIsGameOver}
+              winner={displayWinner}
+              resignReason={displayResignReason}
               className="w-full"
             />
 
@@ -187,6 +235,9 @@ export default function HomePage() {
               boardTheme={boardTheme}
               ownershipMap={heatmapMode !== 'none' ? analysis?.ownershipGrid : null}
               heatmapMode={heatmapMode}
+              previewCandidateCoord={previewCandidateCoord}
+              previewPvCoords={previewPvCoords}
+              deadStoneKeys={effectiveDeadStoneKeys}
               className="w-full flex justify-center"
             />
 
@@ -197,6 +248,7 @@ export default function HomePage() {
               onResign={handleResign}
               onUndo={handleUndo}
               onOpenNewGame={() => setIsNewGameOpen(true)}
+              onOpenVictoryModal={() => setIsVictoryModalOpen(true)}
               isAiThinking={isAiThinking}
               heatmapMode={heatmapMode}
               onSelectHeatmapMode={setHeatmapMode}
@@ -255,13 +307,50 @@ export default function HomePage() {
 
           {/* Active Tab Body */}
           {activeRightTab === 'coach' ? (
-            <CoachAdviceCard
-              advice={coachAdvice}
-              isLoading={isCoachLoading}
-              gameMode={gameMode}
-              selectedRank={selectedRank}
-              onRequestAdvice={() => requestCoachAdvice(gameState, analysis)}
-            />
+            <div className="flex flex-col gap-3">
+              {/* Game Phase Progress Bar (Fuseki, Chuban, Yose) - Relocated to AI Panel */}
+              <GamePhaseBar
+                moveNumber={displayGameState.history.length}
+                boardSize={displayGameState.boardSize}
+                className="w-full"
+              />
+
+              <CoachAdviceCard
+                advice={coachAdvice}
+                isLoading={isCoachLoading}
+                gameMode={gameMode}
+                selectedRank={selectedRank}
+                onRequestAdvice={() => requestCoachAdvice(gameState, analysis)}
+              />
+
+              <OpponentMoveCard
+                moveNumber={lastMoveRecord?.moveNumber ?? 0}
+                lastMoveCoord={
+                  displayGameState.lastMove
+                    ? pointToString(displayGameState.lastMove, displayGameState.boardSize)
+                    : null
+                }
+                lastMoveColor={lastMoveRecord?.color ?? null}
+                scoreDelta={opponentScoreDelta}
+                opponentIntent={coachAdvice?.opponentMoveIntent ?? null}
+                initiative={coachAdvice?.initiative}
+                initiativeThai={coachAdvice?.initiativeThai}
+              />
+
+              <CandidateMovesCard
+                candidates={analysis?.suggestedMoves ?? []}
+                explanations={coachAdvice?.candidateExplanations}
+                isAiThinking={isAiThinking}
+                activePreviewPv={previewPvCoords}
+                onSelectMove={(coord, pt) => {
+                  setPreviewCandidateCoord(null);
+                  setPreviewPvCoords(null);
+                  handlePlayMove(pt);
+                }}
+                onHoverMove={(coord) => setPreviewCandidateCoord(coord)}
+                onPreviewVariation={(pv) => setPreviewPvCoords(pv)}
+              />
+            </div>
           ) : (
             <MoveHistoryPanel
               gameState={gameState}
@@ -285,6 +374,26 @@ export default function HomePage() {
       <MatchHistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
+      />
+
+      {/* Post-Match Victory & Dragon Autopsy Modal */}
+      <VictoryModal
+        isOpen={isVictoryModalOpen && gameState.isGameOver}
+        onClose={() => setIsVictoryModalOpen(false)}
+        onNewGame={() => {
+          setIsVictoryModalOpen(false);
+          setIsNewGameOpen(true);
+        }}
+        winner={gameState.winner === null ? null : gameState.winner === 1 ? 'B' : 'W'}
+        playerColor={playerColor}
+        resignReason={gameState.resignReason}
+        scoreLead={analysis?.scoreLead ?? 0}
+        captures={gameState.captures}
+        deadStonesSummary={deadStonesSummary}
+        showDeadStones={showDeadStones}
+        onToggleDeadStones={toggleShowDeadStones}
+        showHeatmap={heatmapMode !== 'none'}
+        onToggleHeatmap={() => setHeatmapMode(prev => getNextHeatmapMode(prev))}
       />
     </main>
   );

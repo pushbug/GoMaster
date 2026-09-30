@@ -33,3 +33,13 @@
   3. Replace the single cycle button with a 3-pill Segmented Control `[ All | ดำ ● | ขาว ○ ]` supporting direct 1-click mode activation and 1-click toggle-off.
 - **Consequences:** Zero visual overflow across desktop and tablet viewports, instant 1-click heatmap selection, fixed control bar width, and 100% test coverage.
 
+### ADR 007: Sub-hook Decomposition (useBotTurn, useGameAnalysis, useDeadStonesDetection)
+- **Context:** `useGoGame.ts` grew into a 652-line monolithic hook coupling game rules, bot AI loop, async analysis, coach explanations, dead stone detection, and modal states.
+- **Decision:** Decompose `useGoGame.ts` into 3 single-responsibility sub-hooks:
+  1. `lib/hooks/useDeadStonesDetection.ts`: Handles post-game ownership analysis, dead stone clustering, and VictoryModal open/close logic.
+  2. `lib/hooks/useGameAnalysis.ts`: Isolates KataGo API requests, Gemini coach explain calls, and race-condition sequence invalidation counters.
+  3. `lib/hooks/useBotTurn.ts`: Encapsulates the bot turn cycle, thinking delays, hopelessness evaluation, pass/resignation rules, and calibrated move execution.
+  Keep `useGoGame.ts` as an orchestrator (365 lines) preserving 100% API backwards compatibility.
+- **Consequences:** Decreases hook cognitive complexity, enables isolated sub-hook unit testing (`tests/hooks/use-sub-hooks.test.ts`), and simplifies future engine enhancements.
+
+

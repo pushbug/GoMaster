@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_RANKS, getRankConfig, selectBotMove } from '../../lib/engine/difficulty';
 import { CandidateMoveEvaluation } from '../../lib/engine/types';
+import { createInitialGameState, playMove } from '../../lib/go/rules';
 import {
   calculateAccuracy,
   classifyMoveQuality,
@@ -90,8 +91,44 @@ describe('AI Difficulty & Match History System', () => {
         const move = selectBotMove(mockCandidates, '8k');
         if (move) chosenMoves.add(move.coord);
       }
-      // Over 100 trials with 38% blunder rate, more than 1 candidate should be sampled
+      // Over 100 trials with calibrated blunder rate, more than 1 candidate should be sampled
       expect(chosenMoves.size).toBeGreaterThan(1);
+    });
+
+    it('calibrates 1D bot to authentic human level sampling candidates 2 and 3 (BOT-CALIB-1D-01)', () => {
+      const config1D = getRankConfig('1D');
+      expect(config1D.blunderRate).toBe(0.14);
+
+      const selections: Record<string, number> = { D16: 0, Q16: 0, K10: 0 };
+      const trials = 300;
+      for (let i = 0; i < trials; i++) {
+        const move = selectBotMove(mockCandidates, '1D');
+        if (move) selections[move.coord] = (selections[move.coord] || 0) + 1;
+      }
+
+      // Best move (D16) is still the dominant choice (> 70% of moves)
+      expect(selections['D16']).toBeGreaterThan(trials * 0.7);
+      // But candidates 2 (Q16) and 3 (K10) are sampled occasionally for human realism
+      expect(selections['Q16'] + selections['K10']).toBeGreaterThan(5);
+    });
+
+    it('generates authentic Kyu slack moves when gameState is provided (AI-BOT-02)', () => {
+      let state = createInitialGameState(19);
+      // Play a couple of moves so there are stones on the board
+      state = playMove(state, { x: 3, y: 3 }).state; // Black D16
+      state = playMove(state, { x: 15, y: 15 }).state; // White Q4
+
+      let slackMoveFound = false;
+      for (let i = 0; i < 60; i++) {
+        const move = selectBotMove(mockCandidates, '8k', state);
+        if (move && move.coord !== 'D16' && move.coord !== 'Q16' && move.coord !== 'K10') {
+          slackMoveFound = true;
+          expect(move.rank).toBe(4);
+          expect(move.scoreLoss).toBeGreaterThan(1.0);
+          break;
+        }
+      }
+      expect(slackMoveFound).toBe(true);
     });
   });
 

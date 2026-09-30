@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COLUMN_LETTERS, pointToString, stringToPoint } from '../../lib/go/board';
-import { createHandicapGameState, createInitialGameState, findGroup, playMove, undoMove, validateMove } from '../../lib/go/rules';
+import { createHandicapGameState, createInitialGameState, findGroup, playMove, resolveDualPassWinner, undoMove, validateMove } from '../../lib/go/rules';
 import { exportToSgf, importFromSgf } from '../../lib/go/sgf';
 import { BLACK, EMPTY, WHITE } from '../../lib/go/types';
 
@@ -227,6 +227,22 @@ describe('Go Rule Engine & Board Logic', () => {
       state = playMove(state, 'PASS').state;
       expect(state.consecutivePasses).toBe(2);
       expect(state.isGameOver).toBe(true);
+      expect(state.resignReason).toContain('จบเกมด้วยการผ่านหมากทั้งสองฝ่าย');
+
+      // Resolve winner when Black leads by 15.5
+      const blackWinState = resolveDualPassWinner(state, 15.5);
+      expect(blackWinState.winner).toBe(BLACK);
+      expect(blackWinState.resignReason).toContain('หมากดำนำ 15.5 แต้ม');
+
+      // Resolve winner when White leads by 8.2 (scoreLead: -8.2)
+      const whiteWinState = resolveDualPassWinner(state, -8.2);
+      expect(whiteWinState.winner).toBe(WHITE);
+      expect(whiteWinState.resignReason).toContain('หมากขาวนำ 8.2 แต้ม');
+
+      // Resolve draw when scoreLead is 0
+      const drawState = resolveDualPassWinner(state, 0.0);
+      expect(drawState.winner).toBe('DRAW');
+      expect(drawState.resignReason).toContain('คะแนนเสมอกัน');
     });
 
     it('correctly undoes moves and restores prior board state', () => {

@@ -20,6 +20,7 @@ interface GoControlsProps {
   onResign: () => void;
   onUndo: () => void;
   onOpenNewGame?: () => void;
+  onOpenVictoryModal?: () => void;
   isAiThinking?: boolean;
   className?: string;
 
@@ -44,6 +45,7 @@ export const GoControls: React.FC<GoControlsProps> = ({
   onResign,
   onUndo,
   onOpenNewGame,
+  onOpenVictoryModal,
   isAiThinking = false,
   className = '',
   heatmapMode = 'none',
@@ -89,15 +91,26 @@ export const GoControls: React.FC<GoControlsProps> = ({
               <span className="text-zinc-400">({resignReason})</span>
             )}
           </div>
-          {onOpenNewGame && (
-            <button
-              onClick={onOpenNewGame}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-colors shadow-sm"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>เริ่มเกมใหม่</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onOpenVictoryModal && (
+              <button
+                type="button"
+                onClick={onOpenVictoryModal}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-300 font-medium transition-colors border border-zinc-700 cursor-pointer"
+              >
+                <span>🔍 ชันสูตรเกม / หมากตาย</span>
+              </button>
+            )}
+            {onOpenNewGame && (
+              <button
+                onClick={onOpenNewGame}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-colors shadow-sm"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>เริ่มเกมใหม่</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

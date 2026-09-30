@@ -2,27 +2,33 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameMode } from '@/components/go/GameModeSelector';
-import { CoachAdviceResponse } from '@/lib/coach/gemini-coach';
-import { getRankConfig, Rank, selectBotMove } from '@/lib/engine/difficulty';
+import { Rank } from '@/lib/engine/difficulty';
 import { EngineAnalysisResult } from '@/lib/engine/types';
-import { pointToString } from '@/lib/go/board';
 import { getDisplayState } from '@/lib/go/replay';
-import { createHandicapGameState, createInitialGameState, playMove, undoMove } from '@/lib/go/rules';
+import {
+  createHandicapGameState,
+  createInitialGameState,
+  playMove,
+  undoMove,
+} from '@/lib/go/rules';
 import { exportToSgf } from '@/lib/go/sgf';
 import { stoneSoundEngine } from '@/lib/go/sound';
 import { BLACK, BoardSize, GameState, Point, WHITE } from '@/lib/go/types';
+import { calculateAccuracy, MatchRecord, saveMatchRecord } from '@/lib/storage/match-history';
+import { useBotTurn } from './useBotTurn';
+import { useDeadStonesDetection } from './useDeadStonesDetection';
+import { useGameAnalysis } from './useGameAnalysis';
 import { useReplayNavigation } from './useReplayNavigation';
-import {
-  calculateAccuracy,
-  MatchRecord,
-  saveMatchRecord,
-} from '@/lib/storage/match-history';
 
 export interface UseGoGameOptions {
   initialBoardSize?: BoardSize;
   soundEnabled?: boolean;
 }
 
+/**
+ * Main coordinator hook composing game state, replay navigation,
+ * KataGo analysis, Gemini coaching, and bot AI auto-play loop.
+ */
 export function useGoGame(options: UseGoGameOptions = {}) {
   const { initialBoardSize = 19, soundEnabled = true } = options;
 
@@ -52,127 +58,97 @@ export function useGoGame(options: UseGoGameOptions = {}) {
 
   const displayGameState = getDisplayState(gameState, historySnapshots, reviewStep);
 
-  // AI & Game Mode Settings
+  // Game Mode & Player Preferences
   const [gameMode, setGameMode] = useState<GameMode>('vs-ai');
   const [selectedRank, setSelectedRank] = useState<Rank>('1D');
   const [playerColor, setPlayerColor] = useState<'B' | 'W'>('B');
-  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
-
-  // Analysis State
-  const [analysis, setAnalysis] = useState<EngineAnalysisResult | null>(null);
   const [playerLosses, setPlayerLosses] = useState<number[]>([]);
-  const [winrateHistory, setWinrateHistory] = useState<number[]>([50]);
-  const [scoreLeadHistory, setScoreLeadHistory] = useState<number[]>([0]);
-
-  // AI Sensei Coach State
-  const [coachAdvice, setCoachAdvice] = useState<CoachAdviceResponse | null>(null);
-  const [isCoachLoading, setIsCoachLoading] = useState<boolean>(false);
-
-  // Engine Status
-  const [isEngineMock, setIsEngineMock] = useState<boolean>(true);
-
-  // Refs for async bot execution safety
   const matchSavedRef = useRef<boolean>(false);
-  const isAiThinkingRef = useRef<boolean>(false);
 
-  // Check initial engine status
-  useEffect(() => {
-    fetch('/api/engine/status')
-      .then(res => res.json())
-      .then(data => {
-        if (typeof data.isMock === 'boolean') {
-          setIsEngineMock(data.isMock);
-        }
-      })
-      .catch(() => setIsEngineMock(true));
+  // Sub-Hook 1: KataGo Analysis & Gemini Coach Feedback
+  const {
+    analysis,
+    setAnalysis,
+    isEngineMock,
+    winrateHistory,
+    setWinrateHistory,
+    scoreLeadHistory,
+    setScoreLeadHistory,
+    coachAdvice,
+    setCoachAdvice,
+    isCoachLoading,
+    previewCandidateCoord,
+    setPreviewCandidateCoord,
+    previewPvCoords,
+    setPreviewPvCoords,
+    analysisSeqRef,
+    coachSeqRef,
+    requestAnalysis,
+    requestCoachAdvice,
+    resetAnalysis,
+    invalidateInflightAnalysis,
+  } = useGameAnalysis({
+    playerColor,
+    selectedRank,
+  });
+
+  // Sub-Hook 2: Dead Stones Detection & Post-Match Victory Modal
+  const {
+    deadStonesSummary,
+    showDeadStones,
+    setShowDeadStones,
+    toggleShowDeadStones,
+    effectiveDeadStoneKeys,
+    isVictoryModalOpen,
+    setIsVictoryModalOpen,
+    resetDeadStones,
+  } = useDeadStonesDetection({
+    gameState,
+    analysis,
+    isReviewing,
+    reviewStep,
+    historyLength: historySnapshots.length,
+  });
+
+  // Callbacks for Bot AI Turn sub-hook
+  const handleBotMove = useCallback((nextState: GameState, scoreLoss?: number) => {
+    setGameState(nextState);
+    setHistorySnapshots(prev => [...prev, nextState]);
+    if (typeof scoreLoss === 'number' && scoreLoss > 0) {
+      setPlayerLosses(prev => [...prev, scoreLoss]);
+    }
   }, []);
 
-  // Request AI Coach Advice
-  const requestCoachAdvice = useCallback(
-    async (state: GameState, analysisResult: EngineAnalysisResult | null) => {
-      setIsCoachLoading(true);
-      try {
-        const lastMoveCoord = state.lastMove
-          ? pointToString(state.lastMove, state.boardSize)
-          : null;
-        const lastMoveRecord = state.history[state.history.length - 1];
+  const handleRecordHistoryEvaluation = useCallback((winrate: number, scoreLead: number) => {
+    setWinrateHistory(prev => [...prev, winrate]);
+    setScoreLeadHistory(prev => [...prev, scoreLead]);
+  }, [setWinrateHistory, setScoreLeadHistory]);
 
-        const bestMove = analysisResult?.suggestedMoves[0]
-          ? {
-              coord: analysisResult.suggestedMoves[0].coord,
-              winrate: analysisResult.suggestedMoves[0].winrate,
-              scoreLead: analysisResult.suggestedMoves[0].scoreLead,
-            }
-          : null;
+  const handlePlayerTurnAnalysis = useCallback((evalResult: EngineAnalysisResult) => {
+    setAnalysis(evalResult);
+    setWinrateHistory(prev => [...prev, evalResult.winrate]);
+    setScoreLeadHistory(prev => [...prev, evalResult.scoreLead]);
+  }, [setAnalysis, setWinrateHistory, setScoreLeadHistory]);
 
-        const res = await fetch('/api/coach-explain', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            boardSize: state.boardSize,
-            moveNumber: state.history.length,
-            lastMove: lastMoveRecord
-              ? {
-                  color: lastMoveRecord.color === BLACK ? 'B' : 'W',
-                  coord: lastMoveCoord || '',
-                }
-              : null,
-            winrate: analysisResult?.winrate ?? 50.0,
-            scoreLead: analysisResult?.scoreLead ?? 0.0,
-            bestSuggestedMove: bestMove,
-            playerColor,
-            userRank: selectedRank,
-          }),
-        });
+  // Sub-Hook 3: Bot AI Auto-Play Loop & Policies
+  const {
+    isAiThinking,
+    isAiThinkingRef,
+    resetBotTurn,
+  } = useBotTurn({
+    gameMode,
+    gameState,
+    playerColor,
+    selectedRank,
+    soundEnabled,
+    requestAnalysis,
+    requestCoachAdvice,
+    onBotMove: handleBotMove,
+    onRecordHistoryEvaluation: handleRecordHistoryEvaluation,
+    onPlayerTurnAnalysis: handlePlayerTurnAnalysis,
+  });
 
-        if (res.ok) {
-          const data: CoachAdviceResponse = await res.json();
-          setCoachAdvice(data);
-        }
-      } catch {
-        // Silently keep previous advice or fallback
-      } finally {
-        setIsCoachLoading(false);
-      }
-    },
-    [playerColor, selectedRank]
-  );
-
-  // Analyze Board Position via KataGo API
-  const requestAnalysis = useCallback(
-    async (state: GameState, rank: Rank): Promise<EngineAnalysisResult | null> => {
-      try {
-        const movesPayload = state.history.map(m => ({
-          color: m.color === BLACK ? ('B' as const) : ('W' as const),
-          point: m.point,
-        }));
-
-        const rankConfig = getRankConfig(rank);
-
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            boardSize: state.boardSize,
-            moves: movesPayload,
-            maxVisits: rankConfig.maxVisits,
-          }),
-        });
-
-        if (!response.ok) return null;
-        const result: EngineAnalysisResult = await response.json();
-        if (typeof result.isMock === 'boolean') {
-          setIsEngineMock(result.isMock);
-        }
-        return result;
-      } catch {
-        return null;
-      }
-    },
-    []
-  );
-
-  // Handle Play Move by User
+  // User Move Action
   const handlePlayMove = async (point: Point) => {
     if (isAiThinkingRef.current) return;
     if (isReviewing) return;
@@ -188,151 +164,21 @@ export function useGoGame(options: UseGoGameOptions = {}) {
       stoneSoundEngine.playStoneClick();
     }
 
-    // In self-study mode, analyze position immediately.
-    // In vs-ai mode, also trigger analysis for the player's move so the EvaluationBar updates immediately
     if (gameMode === 'self-study') {
+      const seq = ++analysisSeqRef.current;
       const evalResult = await requestAnalysis(nextState, selectedRank);
-      if (evalResult) {
+      if (seq === analysisSeqRef.current && evalResult) {
         setAnalysis(evalResult);
         setWinrateHistory(prev => [...prev, evalResult.winrate]);
         setScoreLeadHistory(prev => [...prev, evalResult.scoreLead]);
         requestCoachAdvice(nextState, evalResult);
       }
     } else {
-      requestAnalysis(nextState, selectedRank).then(evalResult => {
-        if (evalResult) {
-          setAnalysis(evalResult);
-          setWinrateHistory(prev => [...prev, evalResult.winrate]);
-          setScoreLeadHistory(prev => [...prev, evalResult.scoreLead]);
-          requestCoachAdvice(nextState, evalResult);
-        }
-      });
+      invalidateInflightAnalysis();
     }
   };
 
-  // Bot Auto-Play Loop
-  useEffect(() => {
-    if (gameMode !== 'vs-ai' || gameState.isGameOver) return;
-
-    const userColorNum = playerColor === 'B' ? BLACK : WHITE;
-    const isBotTurn = gameState.turn !== userColorNum;
-
-    if (!isBotTurn || isAiThinkingRef.current) return;
-
-    let isEffectCancelled = false;
-
-    const runBotTurn = async () => {
-      isAiThinkingRef.current = true;
-      setIsAiThinking(true);
-
-      try {
-        // Natural human-like thinking delay (400ms to 750ms)
-        await new Promise(r => setTimeout(r, 450 + Math.random() * 300));
-        if (isEffectCancelled) return;
-
-        // 1. KataGo analysis for bot's move
-        const botEval = await requestAnalysis(gameState, selectedRank);
-        if (isEffectCancelled) return;
-
-        if (botEval) {
-          setAnalysis(botEval);
-          setWinrateHistory(prev => [...prev, botEval.winrate]);
-          setScoreLeadHistory(prev => [...prev, botEval.scoreLead]);
-        }
-
-        let nextState: GameState | null = null;
-
-        if (botEval && botEval.suggestedMoves.length > 0) {
-          const chosen = selectBotMove(botEval.suggestedMoves, selectedRank);
-          const candidatesToTry = [
-            chosen,
-            ...botEval.suggestedMoves.filter(m => m !== chosen),
-          ];
-
-          for (const cand of candidatesToTry) {
-            if (cand && cand.point) {
-              const moveRes = playMove(gameState, cand.point);
-              if (moveRes.success) {
-                nextState = moveRes.state;
-                break;
-              }
-            }
-          }
-        }
-
-        // Fallback: If no candidate succeeded, scan for any legal board point
-        if (!nextState) {
-          for (let y = 0; y < gameState.boardSize; y++) {
-            for (let x = 0; x < gameState.boardSize; x++) {
-              if (gameState.board[y][x] === 0) {
-                const res = playMove(gameState, { x, y });
-                if (res.success) {
-                  nextState = res.state;
-                  break;
-                }
-              }
-            }
-            if (nextState) break;
-          }
-        }
-
-        // Final fallback: Pass
-        if (!nextState) {
-          nextState = playMove(gameState, 'PASS').state;
-        }
-
-        if (soundEnabled && nextState.lastMove) {
-          stoneSoundEngine.playStoneClick();
-        }
-
-        // Apply bot's move to board
-        setGameState(nextState);
-        setHistorySnapshots(prev => [...prev, nextState]);
-
-        // Record any score loss from bot if applicable
-        if (botEval && botEval.scoreLoss > 0) {
-          setPlayerLosses(prev => [...prev, botEval.scoreLoss]);
-        }
-
-        // Release AI thinking lock so player can immediately interact
-        isAiThinkingRef.current = false;
-        setIsAiThinking(false);
-
-        // 2. Fetch analysis for the player's upcoming turn in background
-        if (!nextState.isGameOver) {
-          const playerEval = await requestAnalysis(nextState, selectedRank);
-          if (!isEffectCancelled && playerEval) {
-            setAnalysis(playerEval);
-            setWinrateHistory(prev => [...prev, playerEval.winrate]);
-            setScoreLeadHistory(prev => [...prev, playerEval.scoreLead]);
-            requestCoachAdvice(nextState, playerEval);
-          }
-        }
-      } catch {
-        // Fallback pass on unexpected exception
-        setGameState(prev => playMove(prev, 'PASS').state);
-      } finally {
-        isAiThinkingRef.current = false;
-        setIsAiThinking(false);
-      }
-    };
-
-    runBotTurn();
-
-    return () => {
-      isEffectCancelled = true;
-    };
-  }, [
-    gameState,
-    gameMode,
-    playerColor,
-    selectedRank,
-    soundEnabled,
-    requestAnalysis,
-    requestCoachAdvice,
-  ]);
-
-  // Handle Game Over: Save Match Record
+  // Handle Game Over: Save Match Record to localStorage
   useEffect(() => {
     if (!gameState.isGameOver || matchSavedRef.current || gameMode !== 'vs-ai') {
       return;
@@ -373,13 +219,27 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     scoreLeadHistory,
   ]);
 
-  // Game Actions
+  // Game Control Actions
   const handlePass = () => {
     if (isAiThinking || isAiThinkingRef.current || isReviewing) return;
     const result = playMove(gameState, 'PASS');
     if (result.success) {
-      setGameState(result.state);
-      setHistorySnapshots(prev => [...prev, result.state]);
+      let finalState = result.state;
+      if (finalState.isGameOver && !finalState.winner && analysis) {
+        const winnerColor =
+          analysis.scoreLead > 0
+            ? BLACK
+            : analysis.scoreLead < 0
+            ? WHITE
+            : 'DRAW';
+        finalState = {
+          ...finalState,
+          winner: winnerColor,
+          resignReason: 'จบเกมด้วยการผ่านหมากทั้งสองฝ่าย',
+        };
+      }
+      setGameState(finalState);
+      setHistorySnapshots(prev => [...prev, finalState]);
     }
   };
 
@@ -394,6 +254,9 @@ export function useGoGame(options: UseGoGameOptions = {}) {
 
   const handleUndo = () => {
     if (isAiThinking || isAiThinkingRef.current) return;
+    resetBotTurn();
+    const seq = ++analysisSeqRef.current;
+    coachSeqRef.current++;
     const undoCount = gameMode === 'vs-ai' && gameState.history.length >= 2 ? 2 : 1;
     const targetIndex = Math.max(0, gameState.history.length - undoCount);
 
@@ -407,28 +270,38 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     setGameState(nextState);
     setHistorySnapshots(prev => prev.slice(0, targetIndex + 1));
     setReviewStep(null);
+
+    // Refresh analysis for the restored position
+    if (!nextState.isGameOver && nextState.history.length > 0) {
+      requestAnalysis(nextState, selectedRank).then(evalResult => {
+        if (seq === analysisSeqRef.current && evalResult) {
+          setAnalysis(evalResult);
+          requestCoachAdvice(nextState, evalResult);
+        }
+      });
+    } else if (nextState.history.length === 0) {
+      setAnalysis(null);
+      setCoachAdvice(null);
+    }
   };
 
   const handleReset = (size?: BoardSize, handicapPoints?: Point[]) => {
     matchSavedRef.current = false;
-    isAiThinkingRef.current = false;
-    setIsAiThinking(false);
+    resetBotTurn();
+    resetAnalysis();
+    resetDeadStones();
+    setPlayerLosses([]);
+
     const targetSize = size || gameState.boardSize;
     const initial =
       handicapPoints && handicapPoints.length >= 2
         ? createHandicapGameState(targetSize, handicapPoints)
         : createInitialGameState(targetSize);
+
     setGameState(initial);
     setHistorySnapshots([initial]);
     setReviewStep(null);
-    setAnalysis(null);
-    setCoachAdvice(null);
-    setPlayerLosses([]);
-    setWinrateHistory([50]);
-    setScoreLeadHistory([0]);
   };
-
-
 
   const handleModeChange = (newMode: GameMode) => {
     if (newMode === gameMode) return;
@@ -468,7 +341,18 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     winrateHistory,
     coachAdvice,
     isCoachLoading,
+    previewCandidateCoord,
+    setPreviewCandidateCoord,
+    previewPvCoords,
+    setPreviewPvCoords,
     isEngineMock,
+    deadStonesSummary,
+    showDeadStones,
+    setShowDeadStones,
+    toggleShowDeadStones,
+    effectiveDeadStoneKeys,
+    isVictoryModalOpen,
+    setIsVictoryModalOpen,
     handlePlayMove,
     handlePass,
     handleResign,

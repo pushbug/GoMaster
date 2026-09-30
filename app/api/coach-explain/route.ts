@@ -62,6 +62,17 @@ export async function POST(request: Request) {
 
     const userRank = typeof payload.userRank === 'string' ? payload.userRank.slice(0, 10) : '1D';
 
+    const candidates = Array.isArray(payload.candidates)
+      ? payload.candidates.slice(0, 3).map((c, idx) => ({
+          coord: typeof c?.coord === 'string' ? c.coord.slice(0, 5) : '',
+          winrate: typeof c?.winrate === 'number' ? Math.max(0, Math.min(100, c.winrate)) : 50,
+          scoreLead: typeof c?.scoreLead === 'number' ? Math.max(-100, Math.min(100, c.scoreLead)) : 0,
+          scoreLoss: typeof c?.scoreLoss === 'number' ? Math.max(0, Math.min(100, c.scoreLoss)) : 0,
+          pv: Array.isArray(c?.pv) ? c.pv.slice(0, 6).map((p: unknown) => String(p).slice(0, 5)) : [],
+          rank: idx + 1,
+        })).filter(c => c.coord.length > 0)
+      : undefined;
+
     const coachRequest: CoachAdviceRequest = {
       boardSize,
       moveNumber,
@@ -69,6 +80,7 @@ export async function POST(request: Request) {
       winrate,
       scoreLead,
       bestSuggestedMove,
+      candidates,
       playerColor,
       userRank,
     };

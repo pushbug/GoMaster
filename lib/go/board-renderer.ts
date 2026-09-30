@@ -1,4 +1,4 @@
-import { COLUMN_LETTERS, getStarPoints } from './board';
+import { COLUMN_LETTERS, getStarPoints, stringToPoint } from './board';
 import { HeatmapMode } from './history-analysis';
 import { BLACK, BoardSize, EMPTY, Point, Stone, WHITE } from './types';
 
@@ -8,6 +8,12 @@ export interface BoardThemeColors {
   starPoint: string;
   coordText: string;
   border: string;
+}
+
+export interface VariationStep {
+  point: Point;
+  color: Stone;
+  stepNumber: number;
 }
 
 export interface BoardRenderParams {
@@ -31,6 +37,8 @@ export interface BoardRenderParams {
   interactive: boolean;
   showGhostStone: boolean;
   isGameOver: boolean;
+  deadStoneKeys?: Set<string> | null;
+  variationPreview?: VariationStep[] | null;
 }
 
 /**
@@ -46,6 +54,30 @@ export function getCanvasCoords(
     cx: coordMargin + x * cellSize,
     cy: coordMargin + y * cellSize,
   };
+}
+
+/**
+ * Draws an elegant red cross marker (✕) over a dead stone
+ */
+export function drawDeadStoneMarker(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  stoneRadius: number
+): void {
+  ctx.save();
+  ctx.strokeStyle = '#ef4444'; // Red-500
+  ctx.lineWidth = Math.max(2, stoneRadius * 0.18);
+  ctx.lineCap = 'round';
+  const r = stoneRadius * 0.4;
+
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy - r);
+  ctx.lineTo(cx + r, cy + r);
+  ctx.moveTo(cx + r, cy - r);
+  ctx.lineTo(cx - r, cy + r);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**
@@ -258,14 +290,19 @@ export function drawStones(
   boardSize: BoardSize,
   coordMargin: number,
   cellSize: number,
-  stoneRadius: number
+  stoneRadius: number,
+  deadStoneKeys?: Set<string> | null
 ): void {
   for (let y = 0; y < boardSize; y++) {
     for (let x = 0; x < boardSize; x++) {
       const stone = board[y][x];
       if (stone !== EMPTY) {
         const { cx, cy } = getCanvasCoords(x, y, coordMargin, cellSize);
-        drawStone(ctx, cx, cy, stoneRadius, stone);
+        const isDead = deadStoneKeys?.has(`${x},${y}`) ?? false;
+        drawStone(ctx, cx, cy, stoneRadius, stone, isDead ? 0.35 : 1);
+        if (isDead) {
+          drawDeadStoneMarker(ctx, cx, cy, stoneRadius);
+        }
       }
     }
   }
@@ -328,6 +365,74 @@ export function drawGhostStone(
 }
 
 /**
+ * Helper to construct sequential variation steps from PV coordinate strings
+ */
+export function buildVariationSteps(
+  pvCoords: string[],
+  initialTurn: Stone,
+  boardSize: BoardSize,
+  board: Stone[][]
+): VariationStep[] {
+  if (!pvCoords || pvCoords.length === 0) return [];
+  const steps: VariationStep[] = [];
+  let currentTurn = initialTurn;
+
+  for (let i = 0; i < pvCoords.length; i++) {
+    const coord = pvCoords[i];
+    if (!coord || coord.toLowerCase() === 'pass') continue;
+    const pt = stringToPoint(coord, boardSize);
+    if (!pt) continue;
+    // Don't draw over an already occupied intersection on the real board
+    if (board[pt.y]?.[pt.x] !== EMPTY) continue;
+
+    steps.push({
+      point: pt,
+      color: currentTurn,
+      stepNumber: i + 1,
+    });
+    currentTurn = currentTurn === BLACK ? WHITE : BLACK;
+  }
+  return steps;
+}
+
+/**
+ * Draws sequential ghost stones with numbered badges (1, 2, 3...) for PV candidate preview
+ */
+export function drawVariationSequence(
+  ctx: CanvasRenderingContext2D,
+  variation: VariationStep[],
+  coordMargin: number,
+  cellSize: number,
+  stoneRadius: number
+): void {
+  if (!variation || variation.length === 0) return;
+
+  for (const step of variation) {
+    const { cx, cy } = getCanvasCoords(step.point.x, step.point.y, coordMargin, cellSize);
+
+    ctx.save();
+    // 1. Draw semi-transparent ghost stone with a crisp outline ring
+    drawStone(ctx, cx, cy, stoneRadius, step.color, 0.72);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, stoneRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = step.color === BLACK ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 42, 0.85)';
+    ctx.lineWidth = Math.max(1.5, stoneRadius * 0.12);
+    ctx.stroke();
+
+    // 2. Draw badge with step number
+    const fontSize = Math.max(10, Math.round(stoneRadius * 0.95));
+    ctx.font = `bold ${fontSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = step.color === BLACK ? '#f8fafc' : '#0f172a';
+    ctx.fillText(`${step.stepNumber}`, cx, cy);
+
+    ctx.restore();
+  }
+}
+
+/**
  * Main coordinator that executes complete Canvas 2D render pipeline
  */
 export function renderGoBoard(params: BoardRenderParams): void {
@@ -352,6 +457,8 @@ export function renderGoBoard(params: BoardRenderParams): void {
     interactive,
     showGhostStone,
     isGameOver,
+    deadStoneKeys,
+    variationPreview,
   } = params;
 
   ctx.clearRect(0, 0, displaySize * dpr, displaySize * dpr);
@@ -373,14 +480,19 @@ export function renderGoBoard(params: BoardRenderParams): void {
   }
 
   // 5. Placed Stones
-  drawStones(ctx, board, boardSize, coordMargin, cellSize, stoneRadius);
+  drawStones(ctx, board, boardSize, coordMargin, cellSize, stoneRadius, deadStoneKeys);
 
   // 6. Last Move Marker
   if (lastMove) {
     drawLastMoveMarker(ctx, lastMove, board, coordMargin, cellSize, stoneRadius);
   }
 
-  // 7. Ghost Stone Hover Preview
+  // 7. Variation Sequence Preview (PV Ghost Stones with numbers)
+  if (variationPreview && variationPreview.length > 0) {
+    drawVariationSequence(ctx, variationPreview, coordMargin, cellSize, stoneRadius);
+  }
+
+  // 8. Ghost Stone Hover Preview
   if (
     interactive &&
     showGhostStone &&

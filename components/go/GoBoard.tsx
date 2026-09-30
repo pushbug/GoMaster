@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { renderGoBoard } from '@/lib/go/board-renderer';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { stringToPoint } from '@/lib/go/board';
+import { buildVariationSteps, renderGoBoard, VariationStep } from '@/lib/go/board-renderer';
 import { HeatmapMode } from '@/lib/go/history-analysis';
 import { validateMove } from '@/lib/go/rules';
 import { EMPTY, GameState, Point } from '@/lib/go/types';
@@ -16,6 +17,10 @@ interface GoBoardProps {
   boardTheme?: 'wood' | 'slate' | 'minimal';
   ownershipMap?: number[][] | null; // values from -1.0 (white) to 1.0 (black)
   heatmapMode?: HeatmapMode;
+  previewCandidateCoord?: string | null;
+  previewPvCoords?: string[] | null;
+  variationPreview?: VariationStep[] | null;
+  deadStoneKeys?: Set<string> | null;
   className?: string;
 }
 
@@ -29,6 +34,10 @@ export const GoBoard: React.FC<GoBoardProps> = ({
   boardTheme = 'wood',
   ownershipMap = null,
   heatmapMode = 'both',
+  previewCandidateCoord = null,
+  previewPvCoords = null,
+  variationPreview = null,
+  deadStoneKeys = null,
   className = '',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -44,7 +53,8 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     const updateSize = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const minDim = Math.min(rect.width, window.innerHeight * 0.75);
+        const maxVertical = Math.max(260, window.innerHeight - 240);
+        const minDim = Math.min(rect.width, maxVertical);
         if (minDim > 0) {
           setDisplaySize(Math.floor(minDim));
         }
@@ -110,6 +120,21 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     canvas.height = displaySize * dpr;
     ctx.scale(dpr, dpr);
 
+    const effectiveHoverPoint =
+      hoverPoint || (previewCandidateCoord ? stringToPoint(previewCandidateCoord, boardSize) : null);
+    const effectiveIsHoverValid = hoverPoint
+      ? isHoverValid
+      : effectiveHoverPoint
+      ? validateMove(gameState, effectiveHoverPoint, turn).valid
+      : false;
+
+    const effectiveVariation =
+      variationPreview && variationPreview.length > 0
+        ? variationPreview
+        : previewPvCoords && previewPvCoords.length > 0
+        ? buildVariationSteps(previewPvCoords, turn, boardSize, board)
+        : null;
+
     renderGoBoard({
       ctx,
       displaySize,
@@ -126,11 +151,13 @@ export const GoBoard: React.FC<GoBoardProps> = ({
       lastMove,
       ownershipMap,
       heatmapMode,
-      hoverPoint,
-      isHoverValid,
+      hoverPoint: effectiveHoverPoint,
+      isHoverValid: effectiveIsHoverValid,
       interactive,
       showGhostStone,
       isGameOver,
+      deadStoneKeys,
+      variationPreview: effectiveVariation,
     });
   }, [
     displaySize,
@@ -143,10 +170,15 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     heatmapMode,
     hoverPoint,
     isHoverValid,
+    previewCandidateCoord,
+    previewPvCoords,
+    variationPreview,
     turn,
+    gameState,
     interactive,
     showGhostStone,
     isGameOver,
+    deadStoneKeys,
     coordMargin,
     boardAreaSize,
     cellSize,

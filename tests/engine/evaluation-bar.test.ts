@@ -1,6 +1,9 @@
+import React from 'react';
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
   calculateEstimatedScores,
+  EvaluationBar,
   getPlayerIdentityLabels,
 } from '../../components/go/EvaluationBar';
 
@@ -137,5 +140,43 @@ describe('EvaluationBar Score Breakdown & Board Coordinate Margin (UI-EVAL-SCORE
       expect(labels.black.badgeText).toBe('เล่น 2 ฝ่าย');
     });
   });
+
+  describe('Replay Evaluation Synchronization & Game Over Suppression (REPLAY-EVAL-01)', () => {
+    it('suppresses game-over banner when isGameOver is false during historical replay', () => {
+      const html = renderToString(
+        React.createElement(EvaluationBar, {
+          winrate: 52.5,
+          scoreLead: 1.2,
+          isGameOver: false,
+          winner: null,
+          resignReason: null,
+          moveNumber: 25,
+          turn: 1,
+        })
+      );
+
+      expect(html).toContain('52.5%');
+      expect(html).not.toContain('ผู้ชนะ:');
+      expect(html).not.toContain('resigned');
+    });
+
+    it('renders game-over banner when live game is concluded', () => {
+      const html = renderToString(
+        React.createElement(EvaluationBar, {
+          winrate: 1.0,
+          scoreLead: -57.4,
+          isGameOver: true,
+          winner: -1,
+          resignReason: 'Black resigned',
+          moveNumber: 138,
+          turn: -1,
+        })
+      );
+
+      expect(html).toContain('ผู้ชนะ: หมากขาว (White)');
+      expect(html).toContain('Black resigned');
+    });
+  });
 });
+
 

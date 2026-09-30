@@ -272,6 +272,7 @@ export function playMove(
       turn: opponentColor,
       consecutivePasses: newConsecutivePasses,
       isGameOver,
+      resignReason: isGameOver ? (gameState.resignReason || 'จบเกมด้วยการผ่านหมากทั้งสองฝ่าย') : undefined,
       koPoint: null, // Passing clears Ko restrictions
       lastMove: null,
       history: [...history, record],
@@ -376,3 +377,38 @@ export function undoMove(gameState: GameState, initialState?: GameState): GameSt
 
   return current;
 }
+
+/**
+ * Resolves winner and descriptive Thai reason for a game concluded by dual passes
+ */
+export function resolveDualPassWinner(
+  gameState: GameState,
+  scoreLead?: number
+): GameState {
+  if (!gameState.isGameOver || gameState.consecutivePasses < 2) {
+    return gameState;
+  }
+
+  let winner: PlayerColor | 'DRAW' | null = null;
+  let reason = 'จบเกมด้วยการผ่านหมากทั้งสองฝ่าย';
+
+  if (typeof scoreLead === 'number') {
+    if (scoreLead > 0.05) {
+      winner = BLACK;
+      reason = `จบเกมด้วยการผ่านหมากทั้งสองฝ่าย (หมากดำนำ ${scoreLead.toFixed(1)} แต้ม)`;
+    } else if (scoreLead < -0.05) {
+      winner = WHITE;
+      reason = `จบเกมด้วยการผ่านหมากทั้งสองฝ่าย (หมากขาวนำ ${Math.abs(scoreLead).toFixed(1)} แต้ม)`;
+    } else {
+      winner = 'DRAW';
+      reason = 'จบเกมด้วยการผ่านหมากทั้งสองฝ่าย (คะแนนเสมอกัน)';
+    }
+  }
+
+  return {
+    ...gameState,
+    winner,
+    resignReason: reason,
+  };
+}
+

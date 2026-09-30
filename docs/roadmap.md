@@ -24,7 +24,7 @@ Roadmap to build a full-stack Go training web application helping players reach 
 ### Milestone 4: Training Dashboard & Interactive Overlays (Completed)
 - [x] 4.1: Evaluation Bar (vertical Winrate % and Score Lead +/- indicator with score breakdown). Completed (2026-09-29)
 - [x] 4.2: KataGo Ownership Heatmap Canvas Overlay (toggleable territory control: both, black, white, none). Completed (2026-09-29)
-- [ ] 4.3: Candidate Move Ghost Stones with winrate badges & PV (Principle Variation) preview.
-- [ ] 4.4: Move Quality Badges (Best Move, Good, Inaccuracy, Mistake, Blunder).
+- [x] 4.3: Candidate Move Ghost Stones with winrate badges & PV (Principle Variation) preview. Completed (2026-09-30)
+- [x] 4.4: Move Quality Badges (Best Move, Good, Inaccuracy, Mistake, Blunder) & Match History. Completed (2026-09-30)
 - [x] 4.5: Real-time Coach Advice Panel with Thai strategic feedback. Completed (2026-09-29)
 
