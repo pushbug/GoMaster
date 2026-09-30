@@ -1,15 +1,15 @@
-### Goal: Deliver high-performance GoMaster training application with responsive Go board, KataGo analysis, Thai Gemini coach, replay review, candidate PV variation preview, and decomposed hook architecture.
+### Goal: Deliver high-performance GoMaster training application with responsive Go board, KataGo analysis, Thai Gemini coach, stabilized anti-flicker UI cards, and silent background inference.
 
 ### Status: COMPLETE
 
 ### Done:
 - Implemented full Go Rule Engine (19x19, 13x13, 9x9, liberties, captures, suicide, Ko rule, handicap, SGF export/import).
-- Decomposed monolithic useGoGame hook into 3 cohesive sub-hooks (useDeadStonesDetection, useGameAnalysis, useBotTurn) reducing lines from 652 to 365 while preserving 100% API backwards compatibility.
-- Built candidate move ghost stones on board with numbered badges and interactive PV (Principle Variation) preview card (Milestone 4.3).
-- Implemented move quality grading (Best, Good, Inaccuracy, Mistake, Blunder) with accuracy formula and localStorage FIFO persistence (Milestone 4.4).
-- Added post-match VictoryModal with dead dragon autopsy clustering and ownership-based dead stone board dimming.
-- Extracted TACTICAL_CATEGORY_LABELS dictionary in gemini-coach.ts to eliminate duplicated Thai category strings across fallback branches.
-- Registered and verified full test suite passing 100% (210/210 tests across 23 test suites).
+- Decomposed monolithic useGoGame hook into 3 cohesive sub-hooks (useDeadStonesDetection, useGameAnalysis, useBotTurn) preserving 100% API backwards compatibility.
+- Stabilized AI Sensei (CoachAdviceCard) with silent background loading, subtle header micro-loader, and min-h-[220px] container constraint.
+- Locked OpponentMoveCard structure and height reservation (min-h-[145px]) to prevent layout jumping between empty and active states.
+- Stabilized CandidateMovesCard (KataGo) by relocating bot thinking state to card header, preventing candidate items from shifting vertically.
+- Added comprehensive unit test suite in tests/components/panel-stabilization.test.ts and registered UI-PANEL-STABLE-01 & 02 in docs/tests/CATALOG.md.
+- Verified 100% test coverage passing across entire project (214/214 tests across 24 test suites) and zero TypeScript/ESLint errors.
 
 ### Next:
 - 1. Add game export/import SGF file upload modal for reviewing external games.
@@ -24,6 +24,7 @@
 - ADR 005: Handicap Undo State Preservation & Hook Decomposition.
 - ADR 006: GoControls Single-Line Action Bar & 3-Pill Heatmap Segmented Switcher.
 - ADR 007: Sub-hook Decomposition (useBotTurn, useGameAnalysis, useDeadStonesDetection).
+- ADR 008: AI Panel Layout Stabilization & Silent Background Loading.
 
 ### Skills:
 - `plan` (.agent/skills/plan/) — Milestone planning and TDD-lite specification.

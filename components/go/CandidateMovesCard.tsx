@@ -64,33 +64,32 @@ export const CandidateMovesCard: React.FC<CandidateMovesCardProps> = ({
 
   return (
     <div
-      className={`p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 shadow-xl flex flex-col gap-2.5 ${className}`}
+      className={`p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 shadow-xl flex flex-col gap-2.5 min-h-[220px] ${className}`}
       data-testid="candidate-moves-card"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between pb-1 border-b border-zinc-800/70">
+      {/* Header with Persistent Height and Non-Shifting Thinking State */}
+      <div className="flex items-center justify-between pb-1 border-b border-zinc-800/70 min-h-[26px]">
         <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-amber-400">
           <Sparkles className="w-4 h-4 text-amber-400" />
-          <span>3 ทางเลือกหมากแนะนำ (KataGo + AI Coach)</span>
+          <span>3 ทางเลือกหมากแนะนำ (KataGo)</span>
         </div>
-        <span className="text-[11px] text-zinc-400 font-mono">คลิกเดิน / ชี้ดูสายหมาก</span>
+        {isAiThinking ? (
+          <div
+            className="flex items-center gap-1.5 text-xs text-amber-300 font-medium animate-pulse"
+            data-testid="candidate-thinking-state"
+          >
+            <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+            <span>คู่ต่อสู้กำลังเดินหมาก...</span>
+          </div>
+        ) : (
+          <span className="text-[11px] text-zinc-400 font-mono">คลิกเดิน / ชี้ดูสายหมาก</span>
+        )}
       </div>
-
-      {/* AI Thinking Status Bar (Persistent, Non-Flickering) */}
-      {isAiThinking && (
-        <div
-          className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs animate-pulse"
-          data-testid="candidate-thinking-state"
-        >
-          <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-          <span className="font-medium">คู่ต่อสู้กำลังเดินหมาก...</span>
-        </div>
-      )}
 
       {/* Candidate List */}
       {topThree.length === 0 ? (
         !isAiThinking && (
-          <div className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800/60 text-center text-xs text-zinc-500 italic">
+          <div className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800/60 text-center text-xs text-zinc-500 italic min-h-[120px] flex items-center justify-center">
             เดินหมากเพื่อดู 3 ตัวเลือกกลยุทธ์จาก KataGo
           </div>
         )
@@ -180,27 +179,6 @@ export const CandidateMovesCard: React.FC<CandidateMovesCardProps> = ({
                     </div>
                   </div>
                 </div>
-
-                {/* Pedagogical Tactical Explanation Box (Purpose, Self, Opponent) */}
-                {exp && (
-                  <div
-                    className="p-2 rounded-lg bg-zinc-900/80 border border-zinc-800/60 text-[11.5px] leading-relaxed space-y-1 text-zinc-300"
-                    data-testid="candidate-explanation-box"
-                  >
-                    <div className="text-amber-200/90 font-medium">
-                      <span className="text-amber-400 font-semibold">เป้าหมาย: </span>
-                      {exp.purpose}
-                    </div>
-                    <div className="text-zinc-400">
-                      <span className="text-emerald-400 font-medium">ผลต่อเรา: </span>
-                      {exp.selfImpact}
-                    </div>
-                    <div className="text-zinc-400">
-                      <span className="text-sky-400 font-medium">ผลต่อคู่แข่ง: </span>
-                      {exp.opponentImpact}
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}

@@ -89,4 +89,6 @@
 | `HOOK-DEAD-01` | useDeadStonesDetection hook isolation, victory modal state, and effective canvas keys | `tests/hooks/use-sub-hooks.test.ts` | Tier 2 |
 | `HOOK-ANALYSIS-01` | useGameAnalysis hook isolation, sequence invalidation, and neutral history reset | `tests/hooks/use-sub-hooks.test.ts` | Tier 2 |
 | `HOOK-BOT-01` | useBotTurn hook isolation, idle thinking lifecycle, and sequence counter increment | `tests/hooks/use-sub-hooks.test.ts` | Tier 2 |
+| `UI-PANEL-STABLE-01` | Zero-flicker silent background loading in CoachAdviceCard preserving previous advice without DOM replacement | `tests/components/panel-stabilization.test.ts` | Tier 2 |
+| `UI-PANEL-STABLE-02` | Fixed-slot height reservation in OpponentMoveCard and CandidateMovesCard preventing layout shift (CLS) | `tests/components/panel-stabilization.test.ts` | Tier 2 |
 

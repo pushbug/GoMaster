@@ -40,6 +40,12 @@
   2. `lib/hooks/useGameAnalysis.ts`: Isolates KataGo API requests, Gemini coach explain calls, and race-condition sequence invalidation counters.
   3. `lib/hooks/useBotTurn.ts`: Encapsulates the bot turn cycle, thinking delays, hopelessness evaluation, pass/resignation rules, and calibrated move execution.
   Keep `useGoGame.ts` as an orchestrator (365 lines) preserving 100% API backwards compatibility.
-- **Consequences:** Decreases hook cognitive complexity, enables isolated sub-hook unit testing (`tests/hooks/use-sub-hooks.test.ts`), and simplifies future engine enhancements.
+### ADR 008: AI Panel Layout Stabilization & Silent Background Loading
+- **Context:** During interactive play, move placements caused visual flickering and severe layout shifts (CLS) on the right sidebar. Specifically, `CoachAdviceCard` tore down existing advice and replaced it with a small loading box, `CandidateMovesCard` pushed the candidate list down by 36px to inject a bot thinking banner, and `OpponentMoveCard` jumped in height between empty and populated states.
+- **Decision:**
+  1. Refactor `CoachAdviceCard` to adopt a silent background fetch pattern: retain previous advice text during loading with subtle opacity (`opacity-70`), show a non-intrusive micro-loader (`coach-silent-loader`) in the header, and enforce `min-h-[220px]`.
+  2. Relocate `candidate-thinking-state` in `CandidateMovesCard` to the header's right-aligned action slot, locking candidate list vertical coordinates and enforcing `min-h-[220px]`.
+  3. Stabilize `OpponentMoveCard` with `min-h-[145px]` across both empty and active states, locking `move-intent-box` to `min-h-[52px]` to absorb text length variance.
+- **Consequences:** Eliminates layout shift (zero CLS) during gameplay, preserves visual focus on the board and metrics, and ensures 100% test suite compatibility (214/214 passing).
 
 

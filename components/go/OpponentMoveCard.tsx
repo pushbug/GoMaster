@@ -43,7 +43,7 @@ export const OpponentMoveCard: React.FC<OpponentMoveCardProps> = ({
 
   return (
     <div
-      className={`p-3.5 sm:p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 shadow-xl flex flex-col gap-2.5 ${className}`}
+      className={`p-3.5 sm:p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 shadow-xl flex flex-col gap-2.5 min-h-[145px] ${className}`}
       data-testid="opponent-move-card"
     >
       {/* Header */}
@@ -52,18 +52,24 @@ export const OpponentMoveCard: React.FC<OpponentMoveCardProps> = ({
           <Crosshair className="w-4 h-4 text-sky-400" />
           <span>วิเคราะห์หมากคู่แข่ง (Opponent Move)</span>
         </div>
-        {hasMove && (
+        {hasMove ? (
           <span className="text-[11px] font-mono text-zinc-400">
             {`ตาที่ #${moveNumber}`}
+          </span>
+        ) : (
+          <span className="text-[11px] font-mono text-zinc-500">
+            รอคู่ต่อสู้เดิน
           </span>
         )}
       </div>
 
       {!hasMove ? (
-        /* Empty / Initial State before opponent plays */
-        <div className="p-3.5 rounded-xl bg-zinc-950/40 border border-zinc-800/60 flex items-center gap-2.5 text-xs text-zinc-400">
-          <HelpCircle className="w-4 h-4 text-zinc-500 shrink-0" />
-          <span>ยังไม่มีการเดินหมากของคู่ต่อสู้ ระบบจะวิเคราะห์เจตนาเมื่อมีหมากใหม่</span>
+        /* Empty / Initial State before opponent plays - Structured to preserve height */
+        <div className="flex-1 flex flex-col justify-center items-center p-3.5 rounded-xl bg-zinc-950/40 border border-zinc-800/60 text-center gap-2 text-xs text-zinc-400">
+          <div className="flex items-center gap-2 text-zinc-400">
+            <HelpCircle className="w-4 h-4 text-zinc-500 shrink-0" />
+            <span>ยังไม่มีการเดินหมากของคู่ต่อสู้ ระบบจะวิเคราะห์เจตนาเมื่อมีหมากใหม่</span>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
@@ -136,9 +142,9 @@ export const OpponentMoveCard: React.FC<OpponentMoveCardProps> = ({
             </div>
           </div>
 
-          {/* Strategic Intent Paragraph */}
+          {/* Strategic Intent Paragraph - Locked Min-Height */}
           <div
-            className="p-3 rounded-xl bg-zinc-950/70 border border-sky-900/30 flex items-start gap-2.5 text-xs text-sky-200/90"
+            className="p-3 rounded-xl bg-zinc-950/70 border border-sky-900/30 flex items-start gap-2.5 text-xs text-sky-200/90 min-h-[52px]"
             data-testid="move-intent-box"
           >
             <div className="min-w-0">

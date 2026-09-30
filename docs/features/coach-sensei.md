@@ -51,6 +51,11 @@ JSON Response -> CoachAdviceCard
 }
 ```
 
+## UI Rendering & Silent Background Loading
+- **Zero-Flicker Updates:** `CoachAdviceCard` uses silent background loading during AI inference. Instead of tearing down the DOM to display a full-body loader, the existing advice remains visible with subtle dimming (`opacity-70`), and a micro-loader badge (`coach-silent-loader`) pulses in the header.
+- **Fixed-Height Reservation:** The card enforces `min-h-[220px]` so that advice updates transition smoothly in-place without triggering layout shifts (CLS) on adjacent panels.
+
 ## Universal AppSec Compliance
 - **Secret Isolation:** `GEMINI_API_KEY` is loaded exclusively inside server API routes (`app/api/coach-explain/route.ts`). It is never bundled into client bundles or prefixed with `NEXT_PUBLIC_`.
 - **Offline / Sandbox Resilience:** Automated tests mock all API requests. In the absence of an API key, the system automatically falls back to `generateFallbackCoachAdvice` without throwing runtime errors.
+

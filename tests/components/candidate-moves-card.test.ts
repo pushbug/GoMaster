@@ -98,7 +98,7 @@ describe('CandidateMovesCard Component (CANDIDATE-CARD-01)', () => {
     expect(html).not.toContain('เดินหมากเพื่อดู 3 ตัวเลือกกลยุทธ์จาก KataGo');
   });
 
-  it('renders pedagogical explanation box and PV preview button (COACH-CANDIDATE-EXP-01, UI-PV-PREVIEW-01)', () => {
+  it('omits verbose explanation box to keep card clean while preserving PV preview button and metrics (CANDIDATE-CARD-03, UI-PV-PREVIEW-01)', () => {
     const mockExplanations = [
       {
         coord: 'D16',
@@ -117,14 +117,16 @@ describe('CandidateMovesCard Component (CANDIDATE-CARD-01)', () => {
       })
     );
 
-    // Verify explanation box
-    expect(html).toContain('data-testid="candidate-explanation-box"');
-    expect(html).toContain('เพื่อสร้างฐานมุมที่มั่นคง');
-    expect(html).toContain('กลุ่มมุมรอดปลอดภัย');
-    expect(html).toContain('บีบให้คู่แข่งถอยไปตั้งรับ');
+    // Verify verbose boilerplate explanation box is omitted
+    expect(html).not.toContain('data-testid="candidate-explanation-box"');
+    expect(html).not.toContain('เพื่อสร้างฐานมุมที่มั่นคง');
 
-    // Verify PV preview button
+    // Verify PV preview button and core metrics are preserved
     expect(html).toContain('data-testid="candidate-pv-preview-btn"');
     expect(html).toContain('ดูสายหมาก');
+    expect(html).toContain('D16');
+    expect(html).toContain('55.4%');
+    expect(html).toContain('+1.5');
+    expect(html).toContain('แต้ม');
   });
 });

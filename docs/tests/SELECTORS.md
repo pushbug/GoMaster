@@ -49,4 +49,5 @@
 | Victory Replay Button | `btn-victory-replay` | Dismiss modal to inspect the final board in replay mode |
 | Victory New Game Button | `btn-victory-new-game` | Start a new game directly from victory modal |
 | Candidate PV Preview Button | `candidate-pv-preview-btn` | Button to toggle sequential PV variation ghost preview on board |
-| Candidate Explanation Box | `candidate-explanation-box` | Pedagogical tactical breakdown box (Purpose, Self, Opponent) |
+| Candidate Explanation Box | `candidate-explanation-box` | Pedagogical tactical breakdown box (Retired: omitted to streamline card UI) |
+| Coach Silent Loader | `coach-silent-loader` | Micro-loader in CoachAdviceCard header during silent background fetch |
