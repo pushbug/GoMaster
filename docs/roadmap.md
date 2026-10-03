@@ -10,6 +10,7 @@ Roadmap to build a full-stack Go training web application helping players reach 
 - [x] 1.3: SGF parser and serializer (import/export games). Completed (2026-09-29)
 - [x] 1.4: High-performance interactive Go Board UI (Canvas/SVG, coordinate labels A-T without I, wood aesthetics, star points, hover ghost stone, audio click). Completed (2026-09-29)
 - [x] 1.5: Unit & Component test suite for all Go rule edge cases. Completed (2026-09-29)
+- [x] 1.6: Developer Tooling & Native macOS Launcher (GoMaster.app with custom 1024px GoMaster.icns, npm run app:create, port 3001 dev server). Completed (2026-10-03)
 
 ### Milestone 2: Backend KataGo Analysis Bridge (Completed)
 - [x] 2.1: KataGo subprocess runner with JSON pipe communication (`katago analysis`). Completed (2026-09-29)
@@ -27,4 +28,6 @@ Roadmap to build a full-stack Go training web application helping players reach 
 - [x] 4.3: Candidate Move Ghost Stones with winrate badges & PV (Principle Variation) preview. Completed (2026-09-30)
 - [x] 4.4: Move Quality Badges (Best Move, Good, Inaccuracy, Mistake, Blunder) & Match History. Completed (2026-09-30)
 - [x] 4.5: Real-time Coach Advice Panel with Thai strategic feedback. Completed (2026-09-29)
+- [x] 4.6: Collapsible Sidebar layout (12-column expansion for portrait displays) & Zen Mode (unassisted competitive play). Completed (2026-10-03)
+
 

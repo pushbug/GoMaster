@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup:katago": "bash scripts/setup-katago.sh"
+    "setup:katago": "bash scripts/setup-katago.sh",
+    "app:create": "bash scripts/create-macos-app.sh"
   },
   "dependencies": {
     "clsx": "^2.1.1",

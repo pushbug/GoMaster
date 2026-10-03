@@ -91,4 +91,6 @@
 | `HOOK-BOT-01` | useBotTurn hook isolation, idle thinking lifecycle, and sequence counter increment | `tests/hooks/use-sub-hooks.test.ts` | Tier 2 |
 | `UI-PANEL-STABLE-01` | Zero-flicker silent background loading in CoachAdviceCard preserving previous advice without DOM replacement | `tests/components/panel-stabilization.test.ts` | Tier 2 |
 | `UI-PANEL-STABLE-02` | Fixed-slot height reservation in OpponentMoveCard and CandidateMovesCard preventing layout shift (CLS) | `tests/components/panel-stabilization.test.ts` | Tier 2 |
+| `UI-ZEN-01` | EvaluationBar Zen mode concealment of winrate and score lead numbers during unassisted play | `tests/components/zen-mode.test.ts` | Tier 2 |
+| `UI-COLLAPSE-01` | Collapsible sidebar layout column calculation and Candidate move/PV preview suppression | `tests/components/zen-mode.test.ts` | Tier 2 |
 

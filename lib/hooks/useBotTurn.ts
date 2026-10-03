@@ -24,6 +24,7 @@ export interface UseBotTurnOptions {
   onBotMove: (nextState: GameState, scoreLoss?: number) => void;
   onRecordHistoryEvaluation?: (winrate: number, scoreLead: number) => void;
   onPlayerTurnAnalysis?: (evalResult: EngineAnalysisResult) => void;
+  zenMode?: boolean;
 }
 
 export interface UseBotTurnReturn {
@@ -50,6 +51,7 @@ export function useBotTurn(options: UseBotTurnOptions): UseBotTurnReturn {
     onBotMove,
     onRecordHistoryEvaluation,
     onPlayerTurnAnalysis,
+    zenMode = false,
   } = options;
 
   const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
@@ -210,7 +212,9 @@ export function useBotTurn(options: UseBotTurnOptions): UseBotTurnReturn {
             if (onPlayerTurnAnalysis) {
               onPlayerTurnAnalysis(playerEval);
             }
-            requestCoachAdvice(nextState, playerEval);
+            if (!zenMode) {
+              requestCoachAdvice(nextState, playerEval);
+            }
           }
         }
       } catch {

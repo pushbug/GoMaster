@@ -42,3 +42,5 @@ yarn-error.log*
 # OS & Editor
 .DS_Store
 Thumbs.db
+GoMaster.app
+.launcher_temp.applescript

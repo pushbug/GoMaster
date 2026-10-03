@@ -23,6 +23,7 @@ import { useReplayNavigation } from './useReplayNavigation';
 export interface UseGoGameOptions {
   initialBoardSize?: BoardSize;
   soundEnabled?: boolean;
+  zenMode?: boolean;
 }
 
 /**
@@ -30,7 +31,7 @@ export interface UseGoGameOptions {
  * KataGo analysis, Gemini coaching, and bot AI auto-play loop.
  */
 export function useGoGame(options: UseGoGameOptions = {}) {
-  const { initialBoardSize = 19, soundEnabled = true } = options;
+  const { initialBoardSize = 19, soundEnabled = true, zenMode = false } = options;
 
   const [gameState, setGameState] = useState<GameState>(() =>
     createInitialGameState(initialBoardSize)
@@ -146,6 +147,7 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     onBotMove: handleBotMove,
     onRecordHistoryEvaluation: handleRecordHistoryEvaluation,
     onPlayerTurnAnalysis: handlePlayerTurnAnalysis,
+    zenMode,
   });
 
   // User Move Action
@@ -171,7 +173,9 @@ export function useGoGame(options: UseGoGameOptions = {}) {
         setAnalysis(evalResult);
         setWinrateHistory(prev => [...prev, evalResult.winrate]);
         setScoreLeadHistory(prev => [...prev, evalResult.scoreLead]);
-        requestCoachAdvice(nextState, evalResult);
+        if (!zenMode) {
+          requestCoachAdvice(nextState, evalResult);
+        }
       }
     } else {
       invalidateInflightAnalysis();
@@ -276,7 +280,9 @@ export function useGoGame(options: UseGoGameOptions = {}) {
       requestAnalysis(nextState, selectedRank).then(evalResult => {
         if (seq === analysisSeqRef.current && evalResult) {
           setAnalysis(evalResult);
-          requestCoachAdvice(nextState, evalResult);
+          if (!zenMode) {
+            requestCoachAdvice(nextState, evalResult);
+          }
         }
       });
     } else if (nextState.history.length === 0) {

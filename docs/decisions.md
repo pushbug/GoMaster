@@ -48,4 +48,14 @@
   3. Stabilize `OpponentMoveCard` with `min-h-[145px]` across both empty and active states, locking `move-intent-box` to `min-h-[52px]` to absorb text length variance.
 - **Consequences:** Eliminates layout shift (zero CLS) during gameplay, preserves visual focus on the board and metrics, and ensures 100% test suite compatibility (214/214 passing).
 
+### ADR 009: Dev Server Port 3001, Native macOS Launcher Bundle, and Zen Mode / Collapsible Sidebar
+- **Context:** Next.js default port 3000 conflicted with other local development projects, launching required opening a terminal manually, portrait/vertical displays suffered from cramped 8:4 grid board width, and competitive players requested an unassisted mode without AI hints.
+- **Decision:**
+  1. Set Next.js dev server default port to 3001 (`next dev -p 3001`) in `package.json`.
+  2. Create native macOS App Launcher (`GoMaster.app`) generated via `scripts/create-macos-app.sh` and `scripts/generate-icon.sh` (rendering a 1024x1024 white "Go" on dark squircle icon converted to `assets/GoMaster.icns`). Purge `Assets.car` and strip `CFBundleIconName` via `plutil` to ensure macOS Finder displays the custom logo.
+  3. Implement Collapsible Sidebar (`isSidebarOpen`) expanding the Go board container to full 12 columns (`lg:col-span-12`), maximizing board dimensions on portrait/vertical displays.
+  4. Implement Zen Mode (`zenMode`) with header toggle button: conceals winrate and score lead numbers on `EvaluationBar`, suppresses candidate move ghost stones and PV previews, and suspends Gemini Coach API queries during gameplay.
+- **Consequences:** Eliminates port collisions, enables one-click desktop app launch on macOS, solves portrait viewport scaling, and provides distraction-free play while saving Gemini API token usage.
+
+
 

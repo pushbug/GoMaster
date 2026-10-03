@@ -16,7 +16,7 @@ import { VictoryModal } from '@/components/go/VictoryModal';
 import { pointToString } from '@/lib/go/board';
 import { calculateMoveScoreDelta, getNextHeatmapMode, HeatmapMode } from '@/lib/go/history-analysis';
 import { useGoGame } from '@/lib/hooks/useGoGame';
-import { History, Layers, PlusCircle, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, History, Layers, PanelRightClose, PanelRightOpen, PlusCircle, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -26,6 +26,8 @@ export default function HomePage() {
   const [activeRightTab, setActiveRightTab] = useState<'coach' | 'history'>('coach');
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [isNewGameOpen, setIsNewGameOpen] = useState<boolean>(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [zenMode, setZenMode] = useState<boolean>(false);
   const [handicap, setHandicap] = useState<number>(0);
   const [komi, setKomi] = useState<number>(6.5);
 
@@ -69,7 +71,7 @@ export default function HomePage() {
     handleUndo,
     handleReset,
     requestCoachAdvice,
-  } = useGoGame({ soundEnabled });
+  } = useGoGame({ soundEnabled, zenMode });
 
   const handleStartNewGame = (config: NewGameConfig) => {
     setBoardTheme(config.boardTheme);
@@ -186,15 +188,49 @@ export default function HomePage() {
             พิกัด: {showCoordinates ? 'เปิด' : 'ปิด'}
           </button>
 
+          {/* Zen Mode Toggle (Unassisted independent play) */}
+          <button
+            onClick={() => setZenMode(prev => !prev)}
+            data-testid="btn-toggle-zen"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-semibold transition-all shadow-sm active:scale-95 text-sm ${
+              zenMode
+                ? 'bg-purple-950/60 border-purple-500/50 text-purple-300'
+                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700/70'
+            }`}
+            title={zenMode ? 'ปิดโหมดเล่นเอง (เปิดคำแนะนำ Sensei)' : 'เปิดโหมดเล่นเอง (Zen Mode: ซ่อนคำใบ้และคะแนน)'}
+          >
+            {zenMode ? <EyeOff className="w-3.5 h-3.5 text-purple-400" /> : <Eye className="w-3.5 h-3.5 text-zinc-400" />}
+            <span className="hidden md:inline">{zenMode ? 'โหมดเล่นเอง' : 'โหมดปกติ'}</span>
+          </button>
+
+          {/* Sidebar Expand / Collapse Toggle */}
+          <button
+            onClick={() => setIsSidebarOpen(prev => !prev)}
+            data-testid="btn-toggle-sidebar"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-semibold transition-all shadow-sm active:scale-95 text-sm ${
+              isSidebarOpen
+                ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700/70'
+                : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+            }`}
+            title={isSidebarOpen ? 'พับเก็บแถบคำแนะนำ' : 'แสดงแถบคำแนะนำ'}
+          >
+            {isSidebarOpen ? (
+              <PanelRightClose className="w-4 h-4 text-zinc-400" />
+            ) : (
+              <PanelRightOpen className="w-4 h-4 text-amber-400" />
+            )}
+            <span className="hidden md:inline">{isSidebarOpen ? 'ซ่อนแถบข้าง' : 'แสดงแถบข้าง'}</span>
+          </button>
+
           <EngineStatusBadge isMock={analysis ? analysis.isMock : isEngineMock} />
         </div>
       </header>
 
       {/* 2. Workspace Body */}
       <div className="flex-1 max-w-[1700px] w-full mx-auto p-3 lg:px-6 lg:py-4 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Interactive Go Board & Evaluation Surroundings (8 Cols) */}
-        <div className="lg:col-span-8 flex flex-col items-center justify-center relative">
-          <div className="w-full max-w-[min(100%,calc(100vh-230px))] flex flex-col items-center gap-2.5">
+        {/* Left Column: Interactive Go Board & Evaluation Surroundings (8 Cols or 12 Cols if collapsed) */}
+        <div className={`${isSidebarOpen ? 'lg:col-span-8' : 'lg:col-span-12'} flex flex-col items-center justify-center relative transition-all duration-300`}>
+          <div className={`w-full ${isSidebarOpen ? 'max-w-[min(100%,calc(100vh-230px))]' : 'max-w-[min(100%,calc(100vh-200px),1020px)]'} flex flex-col items-center gap-2.5`}>
             {/* Top of Board: Evaluation Bar with Dual-Player Identity Badges */}
             <EvaluationBar
               winrate={displayWinrate}
@@ -221,6 +257,7 @@ export default function HomePage() {
               isGameOver={displayIsGameOver}
               winner={displayWinner}
               resignReason={displayResignReason}
+              zenMode={zenMode}
               className="w-full"
             />
 
@@ -233,10 +270,10 @@ export default function HomePage() {
               showGhostStone={!isAiThinking && !isReviewing}
               soundEnabled={soundEnabled}
               boardTheme={boardTheme}
-              ownershipMap={heatmapMode !== 'none' ? analysis?.ownershipGrid : null}
-              heatmapMode={heatmapMode}
-              previewCandidateCoord={previewCandidateCoord}
-              previewPvCoords={previewPvCoords}
+              ownershipMap={!zenMode && heatmapMode !== 'none' ? analysis?.ownershipGrid : null}
+              heatmapMode={zenMode ? 'none' : heatmapMode}
+              previewCandidateCoord={zenMode ? null : previewCandidateCoord}
+              previewPvCoords={zenMode ? [] : previewPvCoords}
               deadStoneKeys={effectiveDeadStoneKeys}
               className="w-full flex justify-center"
             />
@@ -265,8 +302,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Right Column: 2-Tab Panel [คำแนะนำ AI] / [ประวัติการเดิน] (4 Cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-3">
+        {/* Right Column: 2-Tab Panel [คำแนะนำ AI] / [ประวัติการเดิน] (Shown only when isSidebarOpen is true) */}
+        {isSidebarOpen && (
+          <div className="lg:col-span-4 flex flex-col gap-3">
           {/* Tab Navigation Controls */}
           <div className="flex items-center p-1 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm font-semibold shadow-lg">
             <button
@@ -360,6 +398,7 @@ export default function HomePage() {
             />
           )}
         </div>
+        )}
       </div>
 
       {/* New Game Setup Modal */}

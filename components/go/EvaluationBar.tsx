@@ -24,6 +24,7 @@ export interface EvaluationBarProps {
   winner?: number | 'DRAW' | null;
   resignReason?: string | null;
   boardSize?: number;
+  zenMode?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -134,6 +135,7 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({
   winner = null,
   resignReason = null,
   boardSize = 19,
+  zenMode = false,
   className = '',
   style,
 }) => {
@@ -242,10 +244,14 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({
             </span>
           </div>
           <span className="text-zinc-600 font-normal">|</span>
-          <span className="text-zinc-200 text-sm">
-            <strong className="text-amber-400 font-bold">{displayBlackScore}</strong> แต้ม
-          </span>
-          <span className="text-zinc-400 text-xs">({clampedWinrate}%)</span>
+          {!zenMode && (
+            <>
+              <span className="text-zinc-200 text-sm">
+                <strong className="text-amber-400 font-bold">{displayBlackScore}</strong> แต้ม
+              </span>
+              <span className="text-zinc-400 text-xs">({clampedWinrate}%)</span>
+            </>
+          )}
           <span
             className="text-xs font-normal text-zinc-400 bg-zinc-950/80 px-2 py-0.5 rounded-md border border-zinc-800"
             data-testid="counter-black-captures"
@@ -262,11 +268,15 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({
           >
             กิน: <strong className="text-zinc-200 font-bold">{captures.white}</strong>
           </span>
-          <span className="text-zinc-400 text-xs">({whiteWinrate}%)</span>
-          <span className="text-zinc-200 text-sm">
-            <strong className="text-zinc-100 font-bold">{displayWhiteScore}</strong> แต้ม
-          </span>
-          <span className="text-zinc-600 font-normal">|</span>
+          {!zenMode && (
+            <>
+              <span className="text-zinc-400 text-xs">({whiteWinrate}%)</span>
+              <span className="text-zinc-200 text-sm">
+                <strong className="text-zinc-100 font-bold">{displayWhiteScore}</strong> แต้ม
+              </span>
+              <span className="text-zinc-600 font-normal">|</span>
+            </>
+          )}
           <div className="flex items-center gap-1.5" data-testid="eval-player-white">
             <span
               className={`text-xs px-2 py-0.5 rounded font-sans font-semibold border ${
@@ -285,21 +295,23 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({
         </div>
       </div>
 
-      {/* 3. Dual Bar Progress */}
-      <div className="relative h-3.5 w-full rounded-full overflow-hidden bg-zinc-950 border border-zinc-700/60 flex shadow-inner">
-        {/* Black Share (Left) */}
-        <div
-          className="h-full bg-linear-to-r from-zinc-950 to-zinc-800 transition-all duration-500 ease-out flex items-center justify-end pr-2 text-[10px] font-mono font-bold text-zinc-400"
-          style={{ width: `${clampedWinrate}%` }}
-        />
-        {/* White Share (Right) */}
-        <div
-          className="h-full bg-linear-to-r from-zinc-200 to-zinc-50 transition-all duration-500 ease-out flex items-center pl-2 text-[10px] font-mono font-bold text-zinc-800"
-          style={{ width: `${100 - clampedWinrate}%` }}
-        />
-        {/* 50% Equilibrium Center Mark */}
-        <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-amber-500/80 -translate-x-1/2 z-10" />
-      </div>
+      {/* 3. Dual Bar Progress (Concealed in Zen Mode) */}
+      {!zenMode && (
+        <div className="relative h-3.5 w-full rounded-full overflow-hidden bg-zinc-950 border border-zinc-700/60 flex shadow-inner">
+          {/* Black Share (Left) */}
+          <div
+            className="h-full bg-linear-to-r from-zinc-950 to-zinc-800 transition-all duration-500 ease-out flex items-center justify-end pr-2 text-[10px] font-mono font-bold text-zinc-400"
+            style={{ width: `${clampedWinrate}%` }}
+          />
+          {/* White Share (Right) */}
+          <div
+            className="h-full bg-linear-to-r from-zinc-200 to-zinc-50 transition-all duration-500 ease-out flex items-center pl-2 text-[10px] font-mono font-bold text-zinc-800"
+            style={{ width: `${100 - clampedWinrate}%` }}
+          />
+          {/* 50% Equilibrium Center Mark */}
+          <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-amber-500/80 -translate-x-1/2 z-10" />
+        </div>
+      )}
     </div>
   );
 };

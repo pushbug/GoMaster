@@ -51,3 +51,5 @@
 | Candidate PV Preview Button | `candidate-pv-preview-btn` | Button to toggle sequential PV variation ghost preview on board |
 | Candidate Explanation Box | `candidate-explanation-box` | Pedagogical tactical breakdown box (Retired: omitted to streamline card UI) |
 | Coach Silent Loader | `coach-silent-loader` | Micro-loader in CoachAdviceCard header during silent background fetch |
+| Zen Mode Toggle Button | `btn-toggle-zen` | Header button to toggle unassisted Zen mode |
+| Sidebar Toggle Button | `btn-toggle-sidebar` | Header button to collapse/expand AI advice sidebar |

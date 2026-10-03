@@ -1,15 +1,14 @@
-### Goal: Deliver high-performance GoMaster training application with responsive Go board, KataGo analysis, Thai Gemini coach, stabilized anti-flicker UI cards, and silent background inference.
+### Goal: Deliver high-performance GoMaster training application with port 3001 dev server, native macOS launcher app with custom icon, collapsible sidebar for portrait viewports, and distraction-free Zen mode.
 
 ### Status: COMPLETE
 
 ### Done:
-- Implemented full Go Rule Engine (19x19, 13x13, 9x9, liberties, captures, suicide, Ko rule, handicap, SGF export/import).
-- Decomposed monolithic useGoGame hook into 3 cohesive sub-hooks (useDeadStonesDetection, useGameAnalysis, useBotTurn) preserving 100% API backwards compatibility.
-- Stabilized AI Sensei (CoachAdviceCard) with silent background loading, subtle header micro-loader, and min-h-[220px] container constraint.
-- Locked OpponentMoveCard structure and height reservation (min-h-[145px]) to prevent layout jumping between empty and active states.
-- Stabilized CandidateMovesCard (KataGo) by relocating bot thinking state to card header, preventing candidate items from shifting vertically.
-- Added comprehensive unit test suite in tests/components/panel-stabilization.test.ts and registered UI-PANEL-STABLE-01 & 02 in docs/tests/CATALOG.md.
-- Verified 100% test coverage passing across entire project (214/214 tests across 24 test suites) and zero TypeScript/ESLint errors.
+- Reconfigured Next.js dev server default port to 3001 in package.json to prevent localhost:3000 port collisions.
+- Created native macOS App launcher (GoMaster.app) via scripts/create-macos-app.sh with custom 1024px Go logo (assets/GoMaster.icns) and automated Assets.car/CFBundleIconName purge.
+- Implemented Collapsible Sidebar layout in app/page.tsx expanding Go board to 12 columns for portrait/vertical screen optimization.
+- Built unassisted Zen Mode with header toggle, concealing winrate/score numbers on EvaluationBar and suppressing ghost moves and Gemini API requests during play.
+- Created comprehensive test suite in tests/components/zen-mode.test.ts and registered UI-ZEN-01, UI-COLLAPSE-01 in docs/tests/CATALOG.md.
+- Verified 100% test coverage passing across entire project (218/218 tests across 25 test suites) and zero TypeScript compiler errors.
 
 ### Next:
 - 1. Add game export/import SGF file upload modal for reviewing external games.
@@ -25,6 +24,7 @@
 - ADR 006: GoControls Single-Line Action Bar & 3-Pill Heatmap Segmented Switcher.
 - ADR 007: Sub-hook Decomposition (useBotTurn, useGameAnalysis, useDeadStonesDetection).
 - ADR 008: AI Panel Layout Stabilization & Silent Background Loading.
+- ADR 009: Dev Server Port 3001, Native macOS Launcher Bundle, and Zen Mode / Collapsible Sidebar.
 
 ### Skills:
 - `plan` (.agent/skills/plan/) — Milestone planning and TDD-lite specification.
