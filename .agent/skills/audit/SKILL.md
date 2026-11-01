@@ -1,16 +1,16 @@
 ---
-name: scrutinize
-description: Trigger when the user runs the .scrutinize command. Acts as a mobile verification gatekeeper to review code or plans without writing code.
+name: audit
+description: Trigger when the user runs the .audit (or .scrutinize) command. Acts as a mobile verification gatekeeper to review code or plans without writing code.
 invocation_type: user-invoked
 ---
 
-# SKILL: Scrutinize & Quality Gatekeeper (v4.0 - GoMaster Web)
+# SKILL: Audit & Quality Gatekeeper (v4.0 - GoMaster Web)
 
-> Trigger: `.scrutinize` | Dual Shorthand: `.scrutinize ตรวจแผน` or `.scrutinize ตรวจโค้ด`
+> Trigger: `.audit` (alias: `.scrutinize`) | Dual Shorthand: `.audit ตรวจแผน` or `.audit ตรวจโค้ด`
 
 ## DUAL SHORTHAND MODES & AUTO-DETECTION
 
-1. **Mode A — Plan Audit (`.scrutinize ตรวจแผน` or `.scrutinize plan`):**
+1. **Mode A — Plan Audit (`.audit ตรวจแผน` or `.audit plan` / `.scrutinize ตรวจแผน`):**
    - Target: `docs/current_plan.md`
    - Focus: Consult/Grill ingestion completeness, scope boundaries, test mapping, and max 7-step sequential integrity.
    - **Strict Plan Syntax Contract (Silent Background Pre-filter):**
@@ -18,11 +18,11 @@ invocation_type: user-invoked
        `^- \[ \] Step [1-7]: .+ -> Verify: .+$`
      - Mandatory Invariants: Task checkbox `- [ ]`, sequential numbers 1..N (N<=7), deterministic `-> Verify: [CLI check]`.
 
-2. **Mode B — Dev Audit (`.scrutinize ตรวจโค้ด` or `.scrutinize dev` or `.scrutinize code`):**
+2. **Mode B — Dev Audit (`.audit ตรวจโค้ด` or `.audit dev` or `.audit code` / `.scrutinize ตรวจโค้ด`):**
    - Target: `git diff` against base branch + `npm test` & type check results.
    - Focus: Implementation correctness, Go rule verification, zero secret exposure, resource cleanup (canvas, audio, engine pipes).
 
-3. **Auto-Detection (bare `.scrutinize`):**
+3. **Auto-Detection (bare `.audit` or `.scrutinize`):**
    - If `docs/current_plan.md` has `Status: ACTIVE` and working tree has no src changes → Auto-run Mode A (Plan Audit).
    - If code has uncommitted/committed changes or plan has `Status: COMPLETE` → Auto-run Mode B (Dev Audit).
 
@@ -90,4 +90,5 @@ invocation_type: user-invoked
 
 ## PROHIBITIONS
 
-- NEVER write code or fixes in scrutinize. Report only.
+- NEVER write code or fixes in audit. Report only.
+

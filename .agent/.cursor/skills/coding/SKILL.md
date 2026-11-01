@@ -22,7 +22,7 @@ invocation_type: user-invoked
 ## PLAN ANCHORING & STALENESS CHECK
 
 - Read `docs/current_plan.md` + listed docs before coding.
-- **Before each step:** verify target file/change doesn't already exist (`ls`/`grep`). Already done → mark `[x]`, skip. All `[x]` → set `Status: COMPLETE`, announce: "ทำเสร็จครบแล้วครับ แนะนำ .scrutinize ก่อน .done"
+- **Before each step:** verify target file/change doesn't already exist (`ls`/`grep`). Already done → mark `[x]`, skip. All `[x]` → set `Status: COMPLETE`, announce: "ทำเสร็จครบแล้วครับ แนะนำ .audit ก่อน .done"
 - With plan: align strictly. Without plan: max 1 file, confirm scope first.
 
 ## MINIMALISM
@@ -52,7 +52,7 @@ invocation_type: user-invoked
 
 - After each step: mark `[x]` in `docs/current_plan.md`.
 - After ALL steps: `Status: ACTIVE` → `Status: COMPLETE`.
-- **Never end silently.** Report: "ทำเสร็จ step X/Y" or "ครบทุก step แนะนำ .scrutinize"
+- **Never end silently.** Report: "ทำเสร็จ step X/Y" or "ครบทุก step แนะนำ .audit"
 
 ## OUTPUT
 

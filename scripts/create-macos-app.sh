@@ -21,7 +21,7 @@ set projectPath to "$PROJECT_DIR"
 set isRunning to false
 
 try
-    set checkStatus to do shell script "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 1 http://localhost:3001 || true"
+    set checkStatus to do shell script "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 1 http://localhost:3500 || true"
     if checkStatus is not "" and checkStatus is not "000" then
         set isRunning to true
     end if
@@ -35,7 +35,7 @@ if isRunning is false then
     delay 3
 end if
 
-open location "http://localhost:3001"
+open location "http://localhost:3500"
 APPLESCRIPT
 
 # Remove previous bundle if exists

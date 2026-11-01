@@ -9,7 +9,7 @@
 
 Phased co-pilot workflow. Skills: `.agent/skills/` · Docs hub: `docs/INDEX.md`
 
-Commands: `.grill` `.consult` `.plan` `.dev` `.debug` `.scrutinize` `.done`
+Commands: `.grill` `.consult` `.plan` `.dev` `.debug` `.audit` (`.scrutinize`) `.done`
 
 ---
 
@@ -17,35 +17,35 @@ Commands: `.grill` `.consult` `.plan` `.dev` `.debug` `.scrutinize` `.done`
 
 ## Command gate
 
-Prefixes: `.grill` `.consult` `.plan` `.dev` `.scrutinize` `.debug` `.done`
+Prefixes: `.grill` `.consult` `.plan` `.dev` `.audit` `.scrutinize` `.debug` `.done`
 
 No prefix → ask for command only. No reads, code, tests, or edits.
 Auto-trigger exception: `.debug` may be spawned internally by the `.dev` self-heal loop only. A user message describing a bug WITHOUT a `.debug` prefix still hits this gate — ask for the command.
 
-Flow: [`.consult`]* -> [`.grill` (360° Pre-Mortem)]* -> `.plan` -> `.dev` -> [`.debug`]* -> `.scrutinize` -> `.done`
+Flow: [`.consult`]* -> [`.grill` (360° Pre-Mortem)]* -> `.plan` -> `.dev` -> [`.debug`]* -> `.audit` -> `.done`
 
 - `.grill` enforces the **Lens Priority Hierarchy** (Tier 1 AppSec/Data -> Tier 2 State/Resilience -> Tier 3 Scope/Design) to prioritize the top 3-5 critical risks and prevent LLM subjective bias.
 
-Shorthand conventions for `.scrutinize`:
-- `.scrutinize ตรวจแผน` (or `.scrutinize plan`): Audits `docs/current_plan.md` using the 5-point Plan Audit Checklist. Silently enforces the **Strict Plan Syntax Contract** in background (mandatory `- [ ]` task checkboxes, Regex invariant `^- \[ \] Step [1-7]: .+ -> Verify: .+$`, deterministic verification commands, and sequential step ordering), rejecting immediately on breach. Evaluates functional Test Strategy & Coverage (Unit/Component/E2E), 9arm Plan Failure Modes, & Universal AppSec boundaries, appending an actionable Advisory block (`💡 ข้อเสนอแนะ & จุดสังเกต Failure Modes`).
-- `.scrutinize ตรวจโค้ด` (or `.scrutinize dev`/`code`): Audits git diff and test assertions using the 5-point Dev Audit Checklist, runs 9arm Code Failure Mode checks and Universal AppSec scans (zero hardcoded secrets, server-side Gemini key protection, unhandled exceptions, race conditions, memory leaks in canvas/engine pipes), and appends an Advisory block.
-- Bare `.scrutinize`: Auto-detects target based on plan and git diff state.
+Shorthand conventions for `.audit` (alias: `.scrutinize`):
+- `.audit ตรวจแผน` (or `.audit plan` / `.scrutinize ตรวจแผน`): Audits `docs/current_plan.md` using the 5-point Plan Audit Checklist. Silently enforces the **Strict Plan Syntax Contract** in background (mandatory `- [ ]` task checkboxes, Regex invariant `^- \[ \] Step [1-7]: .+ -> Verify: .+$`, deterministic verification commands, and sequential step ordering), rejecting immediately on breach. Evaluates functional Test Strategy & Coverage (Unit/Component/E2E), 9arm Plan Failure Modes, & Universal AppSec boundaries, appending an actionable Advisory block (`💡 ข้อเสนอแนะ & จุดสังเกต Failure Modes`).
+- `.audit ตรวจโค้ด` (or `.audit dev`/`code` / `.scrutinize ตรวจโค้ด`): Audits git diff and test assertions using the 5-point Dev Audit Checklist, runs 9arm Code Failure Mode checks and Universal AppSec scans (zero hardcoded secrets, server-side Gemini key protection, unhandled exceptions, race conditions, memory leaks in canvas/engine pipes), and appends an Advisory block.
+- Bare `.audit` / `.scrutinize`: Auto-detects target based on plan and git diff state.
 
 ## Explicit Invocation Policy
 
 Skills in `.agent/skills/` enforce a strict access control taxonomy in their YAML frontmatter (`invocation_type`):
-- **`user-invoked`:** Triggered exclusively via user dot-command in prompt (`.grill`, `.consult`, `.plan`, `.dev`, `.scrutinize`, `.done`). The AI is strictly forbidden from autonomously invoking these or chaining one user-invoked skill into another.
-- **`model-invoked`:** Autonomous sub-routines and reference guides (e.g. `testing`). The AI reads or references these automatically when scoped conditions match (e.g. during `.plan` and `.scrutinize` to verify selectors and catalog test IDs).
+- **`user-invoked`:** Triggered exclusively via user dot-command in prompt (`.grill`, `.consult`, `.plan`, `.dev`, `.audit`, `.scrutinize`, `.done`). The AI is strictly forbidden from autonomously invoking these or chaining one user-invoked skill into another.
+- **`model-invoked`:** Autonomous sub-routines and reference guides (e.g. `testing`). The AI reads or references these automatically when scoped conditions match (e.g. during `.plan` and `.audit` to verify selectors and catalog test IDs).
 - **`hybrid-invoked`:** User-invoked by default (`.debug`), with a single explicit autonomous exception: `.dev` self-heal loop spawning `.debug` on test/compiler failure.
 
 ## Communication
 
 - Chat replies to the user: Thai, concise, easy to follow. Explain just enough.
 - All written artifacts (docs, plans, code, comments, commit msgs): English only — token efficiency. Write for the AI to re-read, not for the user.
-- **Two-layer output** (scrutinize, debug, coding, and any phase that reports findings to the user):
+- **Two-layer output** (audit, debug, coding, and any phase that reports findings to the user):
   - **Layer 1 — สรุป (ไทย):** 1–2 sentences in plain language + options if applicable. No deep jargon. For the human.
   - **Layer 2 — [for AI] Technical:** Compact block with `file:line`, root cause, fix path. For the next AI turn to act precisely. Always after Layer 1.
-- **Next Command Directive:** All `.consult` Layer 1 replies must conclude with a mandatory single-line directive instructing the human on the exact next dot-command to run (.plan, .grill, .scrutinize, or no action needed).
+- **Next Command Directive:** All `.consult` Layer 1 replies must conclude with a mandatory single-line directive instructing the human on the exact next dot-command to run (.plan, .grill, .audit, or no action needed).
 
 ## Global
 
@@ -73,7 +73,7 @@ Read skills at `.agent/skills/{name}/SKILL.md`, then docs per skill. Never read 
 | `.plan`       | plan, testing       | INDEX, prd, roadmap, design, decisions; feature + test docs per plan skill                                                                                |
 | `.dev`        | coding              | current_plan; compliance (safety contract — always); core/feature docs listed in plan; +state-machines if touching gameplay/engine/ai                     |
 | `.debug`      | debug               | data-flow, dependencies; +danger-zones if state/timer/pipe bug; +state-machines if rule engine bug                                                        |
-| `.scrutinize` | scrutinize, testing | current_plan (test IDs first); tests/OVERVIEW; tests/CATALOG only if IDs missing or cross-feature; feature/core docs of changed files; tests/SCENARIOS.md |
+| `.audit` (alias: `.scrutinize`) | audit, testing | current_plan (test IDs first); tests/OVERVIEW; tests/CATALOG only if IDs missing or cross-feature; feature/core docs of changed files; tests/SCENARIOS.md |
 | `.done`       | handoff             | INDEX, session, roadmap; append new decisions to decisions.md; update affected feature/core/test/roadmap docs                                              |
 
 ---

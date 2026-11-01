@@ -41,7 +41,7 @@ Vague ("something in rules") → Step 3. Hypothesis only → `[เดา]`, Laye
 
 ### 5. Fix & Verify
 Minimal change. Run `npx tsc --noEmit` + affected `npm test` only.
-User-invoked → recommend `.scrutinize` before `.done`. Self-heal → stay in `.dev` scope.
+User-invoked → recommend `.audit` before `.done`. Self-heal → stay in `.dev` scope.
 
 ### 6. Test Recommendation
 After fix passes:

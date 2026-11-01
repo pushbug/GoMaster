@@ -79,7 +79,7 @@ GEMINI_API_KEY="your_google_gemini_api_key"
 ```bash
 npm run dev
 ```
-Open [http://localhost:3001](http://localhost:3001) in your browser.
+Open [http://localhost:3500](http://localhost:3500) in your browser.
 
 #### 🍏 macOS One-Click Launcher (`GoMaster.app`)
 To run GoMaster with a single click like a desktop app:

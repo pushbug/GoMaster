@@ -57,5 +57,14 @@
   4. Implement Zen Mode (`zenMode`) with header toggle button: conceals winrate and score lead numbers on `EvaluationBar`, suppresses candidate move ghost stones and PV previews, and suspends Gemini Coach API queries during gameplay.
 - **Consequences:** Eliminates port collisions, enables one-click desktop app launch on macOS, solves portrait viewport scaling, and provides distraction-free play while saving Gemini API token usage.
 
+### ADR 010: Dev Server Port 3500 & Command Prefix Optimization (.audit)
+- **Context:** Port 3001 conflicted with secondary local services, and developers requested a shorter, more intuitive command prefix than `.scrutinize`.
+- **Decision:**
+  1. Reconfigure Next.js dev server default port to 3500 (`next dev -p 3500`) and production start (`next start -p 3500`) in `package.json`.
+  2. Update macOS launcher script (`scripts/create-macos-app.sh`) and `README.md` to point to `http://localhost:3500`.
+  3. Replace primary review command `.scrutinize` with `.audit` across `.agent/` and `.agent/.cursor/` while preserving `.scrutinize` as an accepted backward-compatible alias.
+  4. Migrate skill directories to `audit/SKILL.md` in both `.agent/skills/` and `.agent/.cursor/skills/` maintaining 1:1 parity under the SKILL SYNC rule.
+- **Consequences:** Eliminates local development port collisions on 3000/3001, simplifies developer ergonomics with `.audit`, preserves workflow backwards compatibility, and passes all 225 unit/component tests.
+
 
 

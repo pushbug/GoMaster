@@ -1,14 +1,14 @@
-### Goal: Deliver high-performance GoMaster training application with port 3001 dev server, native macOS launcher app with custom icon, collapsible sidebar for portrait viewports, and distraction-free Zen mode.
+### Goal: Reconfigure GoMaster development server and launcher to port 3500 and streamline co-pilot workflow with .audit command prefix.
 
 ### Status: COMPLETE
 
 ### Done:
-- Reconfigured Next.js dev server default port to 3001 in package.json to prevent localhost:3000 port collisions.
-- Created native macOS App launcher (GoMaster.app) via scripts/create-macos-app.sh with custom 1024px Go logo (assets/GoMaster.icns) and automated Assets.car/CFBundleIconName purge.
-- Implemented Collapsible Sidebar layout in app/page.tsx expanding Go board to 12 columns for portrait/vertical screen optimization.
-- Built unassisted Zen Mode with header toggle, concealing winrate/score numbers on EvaluationBar and suppressing ghost moves and Gemini API requests during play.
-- Created comprehensive test suite in tests/components/zen-mode.test.ts and registered UI-ZEN-01, UI-COLLAPSE-01 in docs/tests/CATALOG.md.
-- Verified 100% test coverage passing across entire project (218/218 tests across 25 test suites) and zero TypeScript compiler errors.
+- Reconfigured Next.js dev and start scripts in `package.json` to port 3500 (`next dev -p 3500`, `next start -p 3500`) to eliminate port collisions.
+- Updated macOS launcher script `scripts/create-macos-app.sh` and `README.md` to target `http://localhost:3500`.
+- Transitioned primary review command from `.scrutinize` to `.audit` with alias compatibility across `.agent/AGENTS.md` and `.agent/.cursor/rules/copilot-core.mdc`.
+- Migrated review skills to `.agent/skills/audit/SKILL.md` and `.agent/.cursor/skills/audit/SKILL.md` in 100% parity under SKILL SYNC rule.
+- Registered test IDs `TOOL-PORT-01` and `TOOL-CMD-01` in `docs/tests/CATALOG.md` with tests in `tests/scripts/port-configuration.test.ts` and `tests/scripts/command-gate.test.ts`.
+- Verified 100% test pass rate (225/225 tests across 27 suites) and 0 TypeScript compiler errors.
 
 ### Next:
 - 1. Add game export/import SGF file upload modal for reviewing external games.
@@ -25,9 +25,10 @@
 - ADR 007: Sub-hook Decomposition (useBotTurn, useGameAnalysis, useDeadStonesDetection).
 - ADR 008: AI Panel Layout Stabilization & Silent Background Loading.
 - ADR 009: Dev Server Port 3001, Native macOS Launcher Bundle, and Zen Mode / Collapsible Sidebar.
+- ADR 010: Dev Server Port 3500 & Command Prefix Optimization (.audit).
 
 ### Skills:
 - `plan` (.agent/skills/plan/) — Milestone planning and TDD-lite specification.
 - `coding` (.agent/skills/coding/) — Surgical implementation and self-healing validation.
-- `scrutinize` (.agent/skills/scrutinize/) — Quality and AppSec gatekeeping.
+- `audit` (.agent/skills/audit/) — Quality, AppSec, and plan/code gatekeeping.
 - `handoff` (.agent/skills/handoff/) — Session closure and persistent state transfer.

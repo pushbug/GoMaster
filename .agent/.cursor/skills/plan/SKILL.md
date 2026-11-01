@@ -7,7 +7,7 @@ invocation_type: user-invoked
 # SKILL: Project Planning & TDD-Lite (v4.0 - GoMaster Web)
 
 > Invoke via .plan [task]. Required if task > 1 file or > 15 mins.
-> Target Contract: Checked by dev, audited by scrutinize, closed by handoff.
+> Target Contract: Checked by dev, audited by audit, closed by handoff.
 
 ## HARD RULES (OVERRIDE ALL)
 
