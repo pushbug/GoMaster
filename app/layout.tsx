@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th" className={`dark ${prompt.variable}`}>
-      <body className={`${prompt.className} text-[14px] bg-zinc-950 text-zinc-100 antialiased selection:bg-amber-500 selection:text-zinc-950`}>
+      <body suppressHydrationWarning className={`${prompt.className} text-[14px] bg-zinc-950 text-zinc-100 antialiased selection:bg-amber-500 selection:text-zinc-950`}>
         {children}
       </body>
     </html>
