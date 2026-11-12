@@ -78,44 +78,8 @@ export const GoControls: React.FC<GoControlsProps> = ({
     <div
       className={`w-full flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-zinc-100 shadow-xl ${className}`}
     >
-      {/* Game Over Banner if ended */}
-      {isGameOver && (
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-amber-400">
-              {winner === 'DRAW'
-                ? 'ผลการแข่งขัน: เสมอ (Draw)'
-                : `ผู้ชนะ: ${winner === 1 ? 'หมากดำ (Black)' : 'หมากขาว (White)'}`}
-            </span>
-            {resignReason && (
-              <span className="text-zinc-400">({resignReason})</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {onOpenVictoryModal && (
-              <button
-                type="button"
-                onClick={onOpenVictoryModal}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-300 font-medium transition-colors border border-zinc-700 cursor-pointer"
-              >
-                <span>🔍 ชันสูตรเกม / หมากตาย</span>
-              </button>
-            )}
-            {onOpenNewGame && (
-              <button
-                onClick={onOpenNewGame}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-colors shadow-sm"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>เริ่มเกมใหม่</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Main Controls Row: [Replay Navigation] [Heatmap Toggle] [In-Game Actions] */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2.5">
         {/* Left: Replay Navigation Controls (OGS Style) */}
         <div className="flex items-center justify-between sm:justify-start gap-1 sm:gap-1.5 p-1 rounded-xl bg-zinc-950/60 border border-zinc-800 shrink-0">
           {/* 1. Jump to First Move */}
@@ -190,7 +154,7 @@ export const GoControls: React.FC<GoControlsProps> = ({
         </div>
 
         {/* Center / Right: Heatmap Toggle & In-Game Actions [ย้อน] [ผ่าน] [ยอมแพ้] */}
-        <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0 max-w-full flex-wrap">
           {/* Multi-mode Heatmap Segmented Switcher [All | ดำ ● | ขาว ○] */}
           {(onSelectHeatmapMode || onToggleHeatmap) && (
             <div
@@ -242,6 +206,32 @@ export const GoControls: React.FC<GoControlsProps> = ({
             </div>
           )}
 
+          {isGameOver ? (
+            <>
+              {onOpenVictoryModal && (
+                <button
+                  type="button"
+                  onClick={onOpenVictoryModal}
+                  data-testid="btn-open-victory"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-300 font-medium transition-colors border border-zinc-700"
+                >
+                  <span>🔍 ชันสูตรเกม / หมากตาย</span>
+                </button>
+              )}
+              {onOpenNewGame && (
+                <button
+                  type="button"
+                  onClick={onOpenNewGame}
+                  data-testid="btn-new-game"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-colors shadow-sm"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>เริ่มเกมใหม่</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <>
           {/* Undo */}
           <button
             onClick={onUndo}
@@ -277,6 +267,8 @@ export const GoControls: React.FC<GoControlsProps> = ({
             <Flag className="w-3.5 h-3.5 text-red-400" />
             <span>ยอมแพ้</span>
           </button>
+            </>
+          )}
         </div>
       </div>
     </div>

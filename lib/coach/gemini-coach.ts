@@ -280,7 +280,8 @@ export function generateFallbackCoachAdvice(req: CoachAdviceRequest): CoachAdvic
  */
 export async function callGeminiFlashCoach(
   req: CoachAdviceRequest,
-  apiKey?: string
+  apiKey?: string,
+  signal?: AbortSignal
 ): Promise<CoachAdviceResponse> {
   const resolvedKey = apiKey || process.env.GEMINI_API_KEY;
 
@@ -291,12 +292,13 @@ export async function callGeminiFlashCoach(
 
   const systemPrompt = buildCoachSystemPrompt();
   const userPrompt = buildCoachUserPrompt(req);
+  const controller = new AbortController();
+  const abortFromRequest = () => controller.abort();
+  signal?.addEventListener('abort', abortFromRequest, { once: true });
+  const timeoutId = setTimeout(() => controller.abort(), 8500); // 8.5s timeout
 
   try {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${resolvedKey}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8500); // 8.5s timeout
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -319,8 +321,6 @@ export async function callGeminiFlashCoach(
         },
       }),
     });
-
-    clearTimeout(timeoutId);
 
     if (!res.ok) {
       return generateFallbackCoachAdvice(req);
@@ -352,8 +352,16 @@ export async function callGeminiFlashCoach(
       candidateExplanations,
       isAiGenerated: true,
     };
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) {
+      const abortError = new Error('Coach request was cancelled');
+      abortError.name = 'AbortError';
+      throw abortError;
+    }
     // On network failure or parsing exception, fallback safely
     return generateFallbackCoachAdvice(req);
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', abortFromRequest);
   }
 }

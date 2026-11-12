@@ -1,5 +1,56 @@
 import { playMove } from './rules';
-import { GameState, MoveRecord } from './types';
+import { boardToHash } from './board';
+import { GameState, MoveRecord, ReplaySnapshot } from './types';
+
+export function createReplaySnapshot(state: GameState): ReplaySnapshot {
+  return {
+    board: state.board,
+    boardSize: state.boardSize,
+    moveNumber: state.history.length,
+    turn: state.turn,
+    captures: state.captures,
+    koPoint: state.koPoint,
+    lastMove: state.lastMove,
+    consecutivePasses: state.consecutivePasses,
+    isGameOver: state.isGameOver,
+    winner: state.winner,
+    resignReason: state.resignReason,
+  };
+}
+
+export function restoreReplaySnapshot(
+  snapshot: ReplaySnapshot,
+  canonicalHistory: MoveRecord[],
+  initialSnapshot: ReplaySnapshot = snapshot
+): GameState {
+  const history = canonicalHistory.slice(0, snapshot.moveNumber);
+  const boardHashes = new Set<string>([
+    boardToHash(initialSnapshot.board),
+    ...history.map(move => move.boardHash),
+  ]);
+
+  return {
+    board: snapshot.board,
+    boardSize: snapshot.boardSize,
+    turn: snapshot.turn,
+    captures: snapshot.captures,
+    history,
+    boardHashes,
+    koPoint: snapshot.koPoint,
+    lastMove: snapshot.lastMove,
+    consecutivePasses: snapshot.consecutivePasses,
+    isGameOver: snapshot.isGameOver,
+    winner: snapshot.winner,
+    resignReason: snapshot.resignReason,
+  };
+}
+
+export function reconstructReplaySnapshots(
+  initialState: GameState,
+  history: MoveRecord[]
+): ReplaySnapshot[] {
+  return reconstructSnapshots(initialState, history).map(createReplaySnapshot);
+}
 
 /**
  * Reconstructs or maintains an array of GameState snapshots indexed from 0 (initial) to N (move N).
@@ -32,14 +83,27 @@ export function reconstructSnapshots(
  */
 export function getDisplayState(
   gameState: GameState,
-  snapshots: GameState[],
+  snapshots: Array<ReplaySnapshot | GameState>,
   reviewStep: number | null
 ): GameState {
   if (reviewStep === null || reviewStep >= gameState.history.length) {
     return gameState;
   }
   const clamped = Math.max(0, Math.min(reviewStep, snapshots.length - 1));
-  return snapshots[clamped] ?? gameState;
+  const snapshot = snapshots[clamped];
+  if (snapshot && 'history' in snapshot) {
+    return snapshot;
+  }
+  const initialSnapshot = snapshots[0];
+  return snapshot
+    ? restoreReplaySnapshot(
+        snapshot,
+        gameState.history,
+        initialSnapshot && !('history' in initialSnapshot)
+          ? initialSnapshot
+          : createReplaySnapshot(initialSnapshot ?? gameState)
+      )
+    : gameState;
 }
 
 /**

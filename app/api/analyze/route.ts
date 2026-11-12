@@ -25,10 +25,13 @@ export async function POST(request: Request) {
 
     // Dispatch query to KataGo subprocess bridge (or fallback mock)
     const bridge = KataGoBridge.getInstance();
-    const result = await bridge.analyze(validation.sanitizedQuery);
+    const result = await bridge.analyze(validation.sanitizedQuery, request.signal);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return new Response(null, { status: 499 });
+    }
     const message = error instanceof Error ? error.message : 'Internal analysis engine error';
     return NextResponse.json(
       { error: message },

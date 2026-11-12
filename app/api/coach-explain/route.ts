@@ -86,10 +86,13 @@ export async function POST(request: Request) {
     };
 
     // Invoke Gemini Flash with fallback protection
-    const advice = await callGeminiFlashCoach(coachRequest);
+    const advice = await callGeminiFlashCoach(coachRequest, undefined, request.signal);
 
     return NextResponse.json(advice, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return new Response(null, { status: 499 });
+    }
     const fallback = generateFallbackCoachAdvice({
       boardSize: 19,
       moveNumber: 0,

@@ -14,6 +14,7 @@ export interface CandidateMovesCardProps {
   onPreviewVariation?: (pv: string[] | null) => void;
   activePreviewPv?: string[] | null;
   isAiThinking?: boolean;
+  compact?: boolean;
   className?: string;
 }
 
@@ -25,6 +26,7 @@ export const CandidateMovesCard: React.FC<CandidateMovesCardProps> = ({
   onPreviewVariation,
   activePreviewPv = null,
   isAiThinking = false,
+  compact = false,
   className = '',
 }) => {
   const getMoveTag = (rank: number, exp?: CandidateExplanation) => {
@@ -64,7 +66,7 @@ export const CandidateMovesCard: React.FC<CandidateMovesCardProps> = ({
 
   return (
     <div
-      className={`p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 shadow-xl flex flex-col gap-2.5 min-h-[220px] ${className}`}
+      className={`rounded-2xl bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 shadow-xl flex flex-col ${compact ? 'p-2 gap-1.5' : 'p-3.5 gap-2.5 min-h-[220px]'} ${className}`}
       data-testid="candidate-moves-card"
     >
       {/* Header with Persistent Height and Non-Shifting Thinking State */}
@@ -95,7 +97,7 @@ export const CandidateMovesCard: React.FC<CandidateMovesCardProps> = ({
         )
       ) : (
         <div
-          className={`flex flex-col gap-2.5 transition-opacity duration-200 ${
+          className={`flex flex-col ${compact ? 'gap-1' : 'gap-2.5'} transition-opacity duration-200 ${
             isAiThinking ? 'opacity-60 pointer-events-none select-none' : ''
           }`}
         >
@@ -112,72 +114,67 @@ export const CandidateMovesCard: React.FC<CandidateMovesCardProps> = ({
             return (
               <div
                 key={`${move.coord}-${idx}`}
-                className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80 hover:border-amber-500/40 transition-all flex flex-col gap-2 group"
+                className={`rounded-xl bg-zinc-950/60 border border-zinc-800/80 hover:border-amber-500/40 transition-all grid grid-cols-[minmax(0,1fr)_auto] items-center group ${compact ? 'p-2 gap-x-2 gap-y-1' : 'p-3 gap-x-3 gap-y-1.5'}`}
                 data-testid="candidate-move-item"
               >
-                {/* Header Row: Move action & Metrics */}
-                <div className="flex items-center justify-between gap-2">
+                {/* First row: candidate and variation preview */}
+                <button
+                  type="button"
+                  disabled={isAiThinking}
+                  onClick={() => {
+                    if (move.point) {
+                      onSelectMove?.(move.coord, move.point);
+                    }
+                  }}
+                  onMouseEnter={() => onHoverMove?.(move.coord)}
+                  onMouseLeave={() => onHoverMove?.(null)}
+                  className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700/80 flex items-center justify-center font-mono font-bold text-sm text-amber-300 shrink-0 group-hover:scale-105 transition-transform">
+                    {move.coord}
+                  </div>
+                  <span
+                    className={`min-w-0 max-w-full text-[11px] px-2 py-1 rounded-md border font-medium truncate ${tag.badgeClass}`}
+                  >
+                    {tag.label}
+                  </span>
+                </button>
+
+                {/* Variation Preview Button */}
+                {move.pv && move.pv.length > 0 ? (
                   <button
                     type="button"
                     disabled={isAiThinking}
-                    onClick={() => {
-                      if (move.point) {
-                        onSelectMove?.(move.coord, move.point);
-                      }
-                    }}
-                    onMouseEnter={() => onHoverMove?.(move.coord)}
-                    onMouseLeave={() => onHoverMove?.(null)}
-                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+                    onClick={() => onPreviewVariation?.(isPreviewingThis ? null : move.pv)}
+                    onMouseEnter={() => onPreviewVariation?.(move.pv)}
+                    onMouseLeave={() => onPreviewVariation?.(null)}
+                    className={`justify-self-end px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors cursor-pointer shrink-0 ${
+                      isPreviewingThis
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-amber-300 hover:border-zinc-700'
+                    }`}
+                    data-testid="candidate-pv-preview-btn"
+                    title="ดูสายหมากจำลองบนกระดาน"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700/80 flex items-center justify-center font-mono font-bold text-sm text-amber-300 shrink-0 group-hover:scale-105 transition-transform">
-                      {move.coord}
-                    </div>
-                    <div className="min-w-0">
-                      <span
-                        className={`text-[11px] px-1.5 py-0.5 rounded border font-medium truncate inline-block ${tag.badgeClass}`}
-                      >
-                        {tag.label}
-                      </span>
-                    </div>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>ดูสายหมาก</span>
                   </button>
+                ) : (
+                  <span />
+                )}
 
-                  {/* Variation Preview Button */}
-                  {move.pv && move.pv.length > 0 && (
-                    <button
-                      type="button"
-                      disabled={isAiThinking}
-                      onClick={e => {
-                        e.stopPropagation();
-                        onPreviewVariation?.(isPreviewingThis ? null : move.pv);
-                      }}
-                      onMouseEnter={() => onPreviewVariation?.(move.pv)}
-                      onMouseLeave={() => onPreviewVariation?.(null)}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 border transition-colors cursor-pointer shrink-0 ${
-                        isPreviewingThis
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                          : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-amber-300 hover:border-zinc-700'
-                      }`}
-                      data-testid="candidate-pv-preview-btn"
-                      title="ดูสายหมากจำลองบนกระดาน"
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>ดูสายหมาก</span>
-                    </button>
-                  )}
-
-                  {/* Metrics */}
-                  <div className="flex flex-col items-end shrink-0 pl-1">
-                    <div className="font-mono text-xs font-semibold text-emerald-400">
-                      {`${move.winrate}%`}
-                    </div>
-                    <div
-                      className={`font-mono text-[11px] ${
-                        isLeadPositive ? 'text-zinc-300' : 'text-rose-400'
-                      }`}
-                    >
-                      {isLeadPositive ? `+${move.scoreLead}` : move.scoreLead} แต้ม
-                    </div>
-                  </div>
+                {/* Second row: metrics below the variation preview */}
+                <div className="col-start-2 flex items-baseline justify-end gap-2 whitespace-nowrap pr-0.5">
+                  <span className="font-mono text-xs font-semibold text-emerald-400">
+                    {`${move.winrate}%`}
+                  </span>
+                  <span
+                    className={`font-mono text-[11px] ${
+                      isLeadPositive ? 'text-zinc-300' : 'text-rose-400'
+                    }`}
+                  >
+                    {isLeadPositive ? `+${move.scoreLead}` : move.scoreLead} แต้ม
+                  </span>
                 </div>
               </div>
             );

@@ -52,8 +52,9 @@ export function findGroup(board: Stone[][], start: Point): Group | null {
   const queue: Point[] = [start];
   visitedStones.add(`${start.x},${start.y}`);
 
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  let queueIndex = 0;
+  while (queueIndex < queue.length) {
+    const current = queue[queueIndex++];
     stones.push(current);
 
     const neighbors = getAdjacentPoints(current, size);

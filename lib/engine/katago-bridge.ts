@@ -20,6 +20,12 @@ export interface EngineStatusInfo {
   pid: number | null;
 }
 
+function createAbortError(): Error {
+  const error = new Error('Analysis request was cancelled');
+  error.name = 'AbortError';
+  return error;
+}
+
 /**
  * Transforms KataGo's raw JSON analysis output into a structured EngineAnalysisResult
  */
@@ -126,6 +132,7 @@ export function isValidModelFile(filePath: string): boolean {
  * KataGo Subprocess Bridge Manager
  */
 export class KataGoBridge {
+  private static readonly MAX_QUEUED_QUERIES = 8;
   private static instance: KataGoBridge | null = null;
   private process: ChildProcessWithoutNullStreams | null = null;
   private isAvailable = false;
@@ -133,13 +140,24 @@ export class KataGoBridge {
   private discoveredBinary: string | null = null;
   private discoveredConfig: string | null = null;
   private discoveredModel: string | null = null;
+  private activeQueryId: string | null = null;
+  private queuedQueries: Array<{
+    query: KataGoAnalysisQuery;
+    resolve: (value: EngineAnalysisResult) => void;
+    reject: (reason: Error) => void;
+    signal?: AbortSignal;
+    abortHandler?: () => void;
+  }> = [];
   private pendingQueries = new Map<
     string,
     {
       resolve: (value: EngineAnalysisResult) => void;
       reject: (reason: Error) => void;
       boardSize: BoardSize;
+      query: KataGoAnalysisQuery;
       timer: NodeJS.Timeout;
+      signal?: AbortSignal;
+      abortHandler?: () => void;
     }
   >();
 
@@ -267,11 +285,13 @@ export class KataGoBridge {
 
       this.process.on('error', () => {
         this.isAvailable = false;
+        this.settleAllWithFallback();
       });
 
       this.process.on('exit', () => {
         this.isAvailable = false;
         this.process = null;
+        this.settleAllWithFallback();
       });
 
       // Cleanup on application exit
@@ -298,10 +318,8 @@ export class KataGoBridge {
         const raw = JSON.parse(trimmed) as KataGoRawResponse;
         const pending = this.pendingQueries.get(raw.id);
         if (pending) {
-          clearTimeout(pending.timer);
-          this.pendingQueries.delete(raw.id);
           const parsed = parseKataGoRawResponse(raw, pending.boardSize, false);
-          pending.resolve(parsed);
+          this.settlePending(raw.id, parsed);
         }
       } catch {
         // Discard unparseable diagnostic lines
@@ -309,41 +327,157 @@ export class KataGoBridge {
     }
   }
 
-  async analyze(query: KataGoAnalysisQuery): Promise<EngineAnalysisResult> {
+  async analyze(
+    query: KataGoAnalysisQuery,
+    signal?: AbortSignal
+  ): Promise<EngineAnalysisResult> {
+    if (signal?.aborted) {
+      throw createAbortError();
+    }
+
     // If real KataGo is not available, return high-fidelity mock analysis immediately
     if (!this.isAvailable || !this.process) {
       return generateMockAnalysis(query);
     }
 
     return new Promise((resolve, reject) => {
-      const queryId = query.id;
-      const timeoutMs = 12000; // 12 seconds query timeout
+      if (
+        this.pendingQueries.has(query.id) ||
+        this.queuedQueries.some(item => item.query.id === query.id)
+      ) {
+        reject(new Error(`Duplicate KataGo query id: ${query.id}`));
+        return;
+      }
 
-      const timer = setTimeout(() => {
-        this.pendingQueries.delete(queryId);
-        // Fallback to mock on timeout rather than hard failing
+      if (this.queuedQueries.length >= KataGoBridge.MAX_QUEUED_QUERIES) {
         resolve(generateMockAnalysis(query));
-      }, timeoutMs);
+        return;
+      }
 
-      this.pendingQueries.set(queryId, {
+      const queued = {
+        query,
         resolve,
         reject,
-        boardSize: query.boardXSize as BoardSize,
-        timer,
-      });
+        signal,
+        abortHandler: undefined as (() => void) | undefined,
+      };
 
-      try {
-        const queryJson = JSON.stringify(query) + '\n';
-        this.process?.stdin.write(queryJson);
-      } catch (err) {
-        clearTimeout(timer);
-        this.pendingQueries.delete(queryId);
-        resolve(generateMockAnalysis(query));
+      if (signal) {
+        queued.abortHandler = () => this.cancelQuery(query.id);
+        signal.addEventListener('abort', queued.abortHandler, { once: true });
       }
+
+      this.queuedQueries.push(queued);
+      this.pumpQueue();
     });
   }
 
+  private pumpQueue() {
+    if (this.activeQueryId || !this.process || !this.isAvailable) return;
+
+    const queued = this.queuedQueries.shift();
+    if (!queued) return;
+
+    if (queued.signal?.aborted) {
+      this.removeAbortListener(queued.signal, queued.abortHandler);
+      queued.reject(createAbortError());
+      this.pumpQueue();
+      return;
+    }
+
+    const queryId = queued.query.id;
+    this.activeQueryId = queryId;
+    const timer = setTimeout(() => {
+      this.settlePending(queryId, generateMockAnalysis(queued.query));
+    }, 12000);
+
+    this.pendingQueries.set(queryId, {
+      resolve: queued.resolve,
+      reject: queued.reject,
+      boardSize: queued.query.boardXSize as BoardSize,
+      query: queued.query,
+      timer,
+      signal: queued.signal,
+      abortHandler: queued.abortHandler,
+    });
+
+    try {
+      this.process.stdin.write(`${JSON.stringify(queued.query)}\n`);
+    } catch {
+      this.settlePending(queryId, generateMockAnalysis(queued.query));
+    }
+  }
+
+  private cancelQuery(queryId: string) {
+    const queuedIndex = this.queuedQueries.findIndex(item => item.query.id === queryId);
+    if (queuedIndex >= 0) {
+      const [queued] = this.queuedQueries.splice(queuedIndex, 1);
+      this.removeAbortListener(queued.signal, queued.abortHandler);
+      queued.reject(createAbortError());
+      return;
+    }
+
+    const pending = this.pendingQueries.get(queryId);
+    if (!pending) return;
+
+    try {
+      this.process?.stdin.write(`${JSON.stringify({
+        id: `${queryId}_terminate`,
+        action: 'terminate',
+        terminateId: queryId,
+      })}\n`);
+    } catch {
+      // The cancellation still settles locally if the subprocess pipe is closed.
+    }
+
+    this.settlePending(queryId, undefined, createAbortError());
+  }
+
+  private settlePending(
+    queryId: string,
+    result?: EngineAnalysisResult,
+    error?: Error
+  ) {
+    const pending = this.pendingQueries.get(queryId);
+    if (!pending) return;
+
+    clearTimeout(pending.timer);
+    this.removeAbortListener(pending.signal, pending.abortHandler);
+    this.pendingQueries.delete(queryId);
+    if (this.activeQueryId === queryId) {
+      this.activeQueryId = null;
+    }
+
+    if (error) {
+      pending.reject(error);
+    } else {
+      pending.resolve(result ?? generateMockAnalysis(pending.query));
+    }
+    this.pumpQueue();
+  }
+
+  private settleAllWithFallback() {
+    for (const [queryId, pending] of [...this.pendingQueries]) {
+      this.settlePending(queryId, generateMockAnalysis(pending.query));
+    }
+
+    const queued = this.queuedQueries.splice(0);
+    for (const item of queued) {
+      this.removeAbortListener(item.signal, item.abortHandler);
+      item.resolve(generateMockAnalysis(item.query));
+    }
+    this.activeQueryId = null;
+  }
+
+  private removeAbortListener(signal?: AbortSignal, handler?: () => void) {
+    if (signal && handler) {
+      signal.removeEventListener('abort', handler);
+    }
+  }
+
   destroy() {
+    this.isAvailable = false;
+    this.settleAllWithFallback();
     if (this.process) {
       try {
         this.process.kill();
@@ -351,7 +485,6 @@ export class KataGoBridge {
         // Process might already be dead
       }
       this.process = null;
-      this.isAvailable = false;
     }
   }
 }

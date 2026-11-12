@@ -49,6 +49,25 @@ export interface GameState {
   resignReason?: string;
 }
 
+/**
+ * Renderable position stored for replay and undo. Move history and accumulated
+ * board hashes stay canonical on the live GameState instead of being copied
+ * into every snapshot.
+ */
+export interface ReplaySnapshot {
+  board: Stone[][];
+  boardSize: BoardSize;
+  moveNumber: number;
+  turn: PlayerColor;
+  captures: GameState['captures'];
+  koPoint: Point | null;
+  lastMove: Point | null;
+  consecutivePasses: number;
+  isGameOver: boolean;
+  winner: PlayerColor | 'DRAW' | null;
+  resignReason?: string;
+}
+
 export interface MoveValidationResult {
   valid: boolean;
   reason?: 'OCCUPIED' | 'OUT_OF_BOUNDS' | 'SUICIDE' | 'KO_VIOLATION' | 'GAME_OVER';

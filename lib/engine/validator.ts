@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { pointToString } from '../go/board';
 import { BoardSize, Point } from '../go/types';
 import { AnalyzeApiRequest, KataGoAnalysisQuery, KataGoMove } from './types';
@@ -18,7 +19,7 @@ const MIN_ALLOWED_VISITS = 10;
  */
 export function validateAndSanitizeRequest(
   payload: unknown,
-  queryId = `query_${Date.now()}`
+  queryId = `query_${randomUUID()}`
 ): ValidationResult {
   if (!payload || typeof payload !== 'object') {
     return { valid: false, error: 'Request body must be a JSON object' };

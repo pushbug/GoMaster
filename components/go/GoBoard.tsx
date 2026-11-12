@@ -42,6 +42,11 @@ export const GoBoard: React.FC<GoBoardProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hoverFrameRef = useRef<number | null>(null);
+  const pendingHoverRef = useRef<{ point: Point | null; valid: boolean }>({
+    point: null,
+    valid: false,
+  });
   const [hoverPoint, setHoverPoint] = useState<Point | null>(null);
   const [isHoverValid, setIsHoverValid] = useState<boolean>(false);
   const [displaySize, setDisplaySize] = useState<number>(600);
@@ -53,8 +58,7 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     const updateSize = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const maxVertical = Math.max(260, window.innerHeight - 240);
-        const minDim = Math.min(rect.width, maxVertical);
+        const minDim = Math.min(rect.width, rect.height);
         if (minDim > 0) {
           setDisplaySize(Math.floor(minDim));
         }
@@ -86,6 +90,29 @@ export const GoBoard: React.FC<GoBoardProps> = ({
   const cellSize = boardAreaSize / (boardSize - 1);
   const stoneRadius = (cellSize * 0.94) / 2;
 
+  const previewPoint = useMemo(
+    () => previewCandidateCoord
+      ? stringToPoint(previewCandidateCoord, boardSize)
+      : null,
+    [previewCandidateCoord, boardSize]
+  );
+
+  const previewPointIsValid = useMemo(
+    () => previewPoint
+      ? validateMove(gameState, previewPoint, turn).valid
+      : false,
+    [gameState, previewPoint, turn]
+  );
+
+  const effectiveVariation = useMemo(
+    () => variationPreview && variationPreview.length > 0
+      ? variationPreview
+      : previewPvCoords && previewPvCoords.length > 0
+      ? buildVariationSteps(previewPvCoords, turn, boardSize, board)
+      : null,
+    [variationPreview, previewPvCoords, turn, boardSize, board]
+  );
+
   const getBoardPointFromEvent = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>): Point | null => {
       const canvas = canvasRef.current;
@@ -116,24 +143,17 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = displaySize * dpr;
-    canvas.height = displaySize * dpr;
-    ctx.scale(dpr, dpr);
+    const pixelSize = Math.floor(displaySize * dpr);
+    if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
+      canvas.width = pixelSize;
+      canvas.height = pixelSize;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const effectiveHoverPoint =
-      hoverPoint || (previewCandidateCoord ? stringToPoint(previewCandidateCoord, boardSize) : null);
+    const effectiveHoverPoint = hoverPoint || previewPoint;
     const effectiveIsHoverValid = hoverPoint
       ? isHoverValid
-      : effectiveHoverPoint
-      ? validateMove(gameState, effectiveHoverPoint, turn).valid
-      : false;
-
-    const effectiveVariation =
-      variationPreview && variationPreview.length > 0
-        ? variationPreview
-        : previewPvCoords && previewPvCoords.length > 0
-        ? buildVariationSteps(previewPvCoords, turn, boardSize, board)
-        : null;
+      : previewPointIsValid;
 
     renderGoBoard({
       ctx,
@@ -170,11 +190,10 @@ export const GoBoard: React.FC<GoBoardProps> = ({
     heatmapMode,
     hoverPoint,
     isHoverValid,
-    previewCandidateCoord,
-    previewPvCoords,
-    variationPreview,
+    previewPoint,
+    previewPointIsValid,
+    effectiveVariation,
     turn,
-    gameState,
     interactive,
     showGhostStone,
     isGameOver,
@@ -189,25 +208,50 @@ export const GoBoard: React.FC<GoBoardProps> = ({
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!interactive || isGameOver) return;
     const pt = getBoardPointFromEvent(e);
-    if (!pt) {
-      setHoverPoint(null);
-      return;
-    }
+    pendingHoverRef.current = {
+      point: pt,
+      valid: Boolean(
+        pt &&
+        board[pt.y][pt.x] === EMPTY &&
+        validateMove(gameState, pt, turn).valid
+      ),
+    };
 
-    if (!hoverPoint || hoverPoint.x !== pt.x || hoverPoint.y !== pt.y) {
-      setHoverPoint(pt);
-      if (board[pt.y][pt.x] === EMPTY) {
-        const validation = validateMove(gameState, pt, turn);
-        setIsHoverValid(validation.valid);
-      } else {
-        setIsHoverValid(false);
-      }
+    if (hoverFrameRef.current === null) {
+      hoverFrameRef.current = window.requestAnimationFrame(() => {
+        hoverFrameRef.current = null;
+        const next = pendingHoverRef.current;
+        setHoverPoint(current => {
+          if (
+            current?.x === next.point?.x &&
+            current?.y === next.point?.y
+          ) {
+            return current;
+          }
+          return next.point;
+        });
+        setIsHoverValid(current => current === next.valid ? current : next.valid);
+      });
     }
   };
 
   const handleMouseLeave = () => {
+    pendingHoverRef.current = { point: null, valid: false };
+    if (hoverFrameRef.current !== null) {
+      window.cancelAnimationFrame(hoverFrameRef.current);
+      hoverFrameRef.current = null;
+    }
     setHoverPoint(null);
+    setIsHoverValid(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (hoverFrameRef.current !== null) {
+        window.cancelAnimationFrame(hoverFrameRef.current);
+      }
+    };
+  }, []);
 
   // Handle Stone Click
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -235,7 +279,7 @@ export const GoBoard: React.FC<GoBoardProps> = ({
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="rounded-lg shadow-xl cursor-pointer touch-none transition-shadow duration-200"
+        className="absolute max-w-full max-h-full rounded-lg shadow-xl cursor-pointer touch-none transition-shadow duration-200"
         style={{
           width: `${displaySize}px`,
           height: `${displaySize}px`,

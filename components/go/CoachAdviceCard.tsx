@@ -43,17 +43,19 @@ export const CoachAdviceCard: React.FC<CoachAdviceCardProps> = ({
           <span>AI Sensei (อาจารย์ 9 ดั้งอาชีพ)</span>
         </div>
         <div className="flex items-center gap-1.5">
-          {isLoading && (
-            <div
-              className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/25 animate-pulse"
-              data-testid="coach-silent-loader"
-              title="อาจารย์ 9 ดั้งกำลังพิจารณารูปหมากตามผลประเมิน..."
-            >
-              <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
-              <span>กำลังวิเคราะห์...</span>
-            </div>
-          )}
-          {advice?.isAiGenerated && !isLoading && (
+          <span className="grid size-4 shrink-0 place-items-center" role="status">
+            {isLoading && (
+              <>
+                <Loader2
+                  aria-hidden="true"
+                  className="size-3 text-amber-400 motion-safe:animate-spin"
+                  data-testid="coach-silent-loader"
+                />
+                <span className="sr-only">กำลังวิเคราะห์...</span>
+              </>
+            )}
+          </span>
+          {advice?.isAiGenerated && (
             <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
               Gemini Flash
             </span>
@@ -64,8 +66,8 @@ export const CoachAdviceCard: React.FC<CoachAdviceCardProps> = ({
         </div>
       </div>
 
-      {/* Advice Body with In-Place Smooth Transition */}
-      <div className={`flex-1 flex flex-col transition-opacity duration-200 ${isLoading ? 'opacity-70' : 'opacity-100'}`}>
+      {/* Advice Body */}
+      <div className="flex-1 flex flex-col">
         {advice ? (
           <div className="space-y-3">
             {/* Tactical Feedback Box */}

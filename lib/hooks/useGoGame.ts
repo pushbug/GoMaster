@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameMode } from '@/components/go/GameModeSelector';
 import { Rank } from '@/lib/engine/difficulty';
 import { EngineAnalysisResult } from '@/lib/engine/types';
-import { getDisplayState } from '@/lib/go/replay';
+import {
+  createReplaySnapshot,
+  getDisplayState,
+  restoreReplaySnapshot,
+} from '@/lib/go/replay';
 import {
   createHandicapGameState,
   createInitialGameState,
@@ -13,7 +17,7 @@ import {
 } from '@/lib/go/rules';
 import { exportToSgf } from '@/lib/go/sgf';
 import { stoneSoundEngine } from '@/lib/go/sound';
-import { BLACK, BoardSize, GameState, Point, WHITE } from '@/lib/go/types';
+import { BLACK, BoardSize, GameState, Point, ReplaySnapshot, WHITE } from '@/lib/go/types';
 import { calculateAccuracy, MatchRecord, saveMatchRecord } from '@/lib/storage/match-history';
 import { useBotTurn } from './useBotTurn';
 import { useDeadStonesDetection } from './useDeadStonesDetection';
@@ -37,9 +41,10 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     createInitialGameState(initialBoardSize)
   );
 
-  // History Snapshots & Replay Navigation Sub-Hook
-  const [historySnapshots, setHistorySnapshots] = useState<GameState[]>(() => [
-    createInitialGameState(initialBoardSize),
+  // Lightweight board positions for replay. The growing move history remains
+  // canonical on gameState and is not duplicated in every snapshot.
+  const [historySnapshots, setHistorySnapshots] = useState<ReplaySnapshot[]>(() => [
+    createReplaySnapshot(createInitialGameState(initialBoardSize)),
   ]);
 
   const {
@@ -83,11 +88,11 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     previewPvCoords,
     setPreviewPvCoords,
     analysisSeqRef,
-    coachSeqRef,
     requestAnalysis,
     requestCoachAdvice,
     resetAnalysis,
     invalidateInflightAnalysis,
+    cancelInflightRequests,
   } = useGameAnalysis({
     playerColor,
     selectedRank,
@@ -114,7 +119,7 @@ export function useGoGame(options: UseGoGameOptions = {}) {
   // Callbacks for Bot AI Turn sub-hook
   const handleBotMove = useCallback((nextState: GameState, scoreLoss?: number) => {
     setGameState(nextState);
-    setHistorySnapshots(prev => [...prev, nextState]);
+    setHistorySnapshots(prev => [...prev, createReplaySnapshot(nextState)]);
     if (typeof scoreLoss === 'number' && scoreLoss > 0) {
       setPlayerLosses(prev => [...prev, scoreLoss]);
     }
@@ -160,7 +165,7 @@ export function useGoGame(options: UseGoGameOptions = {}) {
 
     const nextState = result.state;
     setGameState(nextState);
-    setHistorySnapshots(prev => [...prev, nextState]);
+    setHistorySnapshots(prev => [...prev, createReplaySnapshot(nextState)]);
 
     if (soundEnabled) {
       stoneSoundEngine.playStoneClick();
@@ -243,7 +248,7 @@ export function useGoGame(options: UseGoGameOptions = {}) {
         };
       }
       setGameState(finalState);
-      setHistorySnapshots(prev => [...prev, finalState]);
+      setHistorySnapshots(prev => [...prev, createReplaySnapshot(finalState)]);
     }
   };
 
@@ -252,23 +257,32 @@ export function useGoGame(options: UseGoGameOptions = {}) {
     const result = playMove(gameState, 'RESIGN');
     if (result.success) {
       setGameState(result.state);
-      setHistorySnapshots(prev => [...prev, result.state]);
+      setHistorySnapshots(prev => [...prev, createReplaySnapshot(result.state)]);
     }
   };
 
   const handleUndo = () => {
     if (isAiThinking || isAiThinkingRef.current) return;
     resetBotTurn();
+    cancelInflightRequests();
     const seq = ++analysisSeqRef.current;
-    coachSeqRef.current++;
     const undoCount = gameMode === 'vs-ai' && gameState.history.length >= 2 ? 2 : 1;
     const targetIndex = Math.max(0, gameState.history.length - undoCount);
 
     let nextState: GameState;
     if (historySnapshots[targetIndex]) {
-      nextState = historySnapshots[targetIndex];
+      nextState = restoreReplaySnapshot(
+        historySnapshots[targetIndex],
+        gameState.history,
+        historySnapshots[0]
+      );
     } else {
-      nextState = undoMove(gameState, historySnapshots[0]);
+      const initialState = restoreReplaySnapshot(
+        historySnapshots[0],
+        gameState.history,
+        historySnapshots[0]
+      );
+      nextState = undoMove(gameState, initialState);
     }
 
     setGameState(nextState);
@@ -305,7 +319,7 @@ export function useGoGame(options: UseGoGameOptions = {}) {
         : createInitialGameState(targetSize);
 
     setGameState(initial);
-    setHistorySnapshots([initial]);
+    setHistorySnapshots([createReplaySnapshot(initial)]);
     setReviewStep(null);
   };
 

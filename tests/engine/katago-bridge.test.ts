@@ -70,6 +70,15 @@ describe('KataGo Analysis Engine Bridge', () => {
       expect(resBadColor.valid).toBe(false);
       expect(resBadColor.error).toContain('Must be "B" or "W"');
     });
+
+    it('generates collision-safe IDs for requests created together', () => {
+      const first = validateAndSanitizeRequest({ boardSize: 19, moves: [] });
+      const second = validateAndSanitizeRequest({ boardSize: 19, moves: [] });
+
+      expect(first.sanitizedQuery?.id).toMatch(/^query_/);
+      expect(second.sanitizedQuery?.id).toMatch(/^query_/);
+      expect(first.sanitizedQuery?.id).not.toBe(second.sanitizedQuery?.id);
+    });
   });
 
   describe('KataGo Raw Response Parsing (ENG-PARSE-01)', () => {

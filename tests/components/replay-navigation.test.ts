@@ -2,9 +2,11 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  createReplaySnapshot,
   getDisplayState,
   isReviewingPastMove,
   reconstructSnapshots,
+  restoreReplaySnapshot,
   stepFirst,
   stepLast,
   stepNext,
@@ -16,6 +18,22 @@ import { useReplayNavigation, UseReplayNavigationReturn } from '../../lib/hooks/
 
 describe('Interactive Move Replay & Step Navigation (UI-REPLAY-01 & UI-REPLAY-02)', () => {
   describe('Snapshot Reconstruction (UI-REPLAY-01)', () => {
+    it('stores replay positions without duplicating history and board hashes', () => {
+      const initial = createInitialGameState(19);
+      const afterMove = playMove(initial, { x: 3, y: 3 }).state;
+      const initialSnapshot = createReplaySnapshot(initial);
+      const snapshot = createReplaySnapshot(afterMove);
+
+      expect(snapshot).not.toHaveProperty('history');
+      expect(snapshot).not.toHaveProperty('boardHashes');
+      expect(snapshot.moveNumber).toBe(1);
+
+      const restored = restoreReplaySnapshot(snapshot, afterMove.history, initialSnapshot);
+      expect(restored.history).toEqual(afterMove.history);
+      expect(restored.board).toBe(afterMove.board);
+      expect(restored.boardHashes.has(afterMove.history[0].boardHash)).toBe(true);
+    });
+
     it('creates N + 1 board snapshots from an empty game through 3 moves', () => {
       const initial = createInitialGameState(19);
       const m1 = playMove(initial, { x: 3, y: 3 }).state; // Black at D4

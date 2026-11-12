@@ -16,3 +16,34 @@ body {
   padding: 0;
   overflow-x: hidden;
 }
+
+.advice-viewport {
+  container: advice / size;
+}
+
+@container advice (height < 420px) {
+  .advice-summary {
+    -webkit-line-clamp: 1;
+  }
+}
+
+@container advice (height < 340px) {
+  .advice-phase,
+  .advice-summary {
+    display: none;
+  }
+}
+
+@container advice (height < 255px) {
+  .advice-opponent {
+    display: none;
+  }
+}
+
+@container advice (height < 220px) {
+  .advice-overview {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

@@ -33,6 +33,7 @@ export interface UseGameAnalysisReturn {
   requestCoachAdvice: (state: GameState, analysisResult: EngineAnalysisResult | null) => Promise<void>;
   resetAnalysis: () => void;
   invalidateInflightAnalysis: () => void;
+  cancelInflightRequests: () => void;
 }
 
 /**
@@ -53,6 +54,8 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
 
   const analysisSeqRef = useRef<number>(0);
   const coachSeqRef = useRef<number>(0);
+  const analysisControllerRef = useRef<AbortController | null>(null);
+  const coachControllerRef = useRef<AbortController | null>(null);
 
   // Check initial engine status on mount
   useEffect(() => {
@@ -66,9 +69,19 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
       .catch(() => setIsEngineMock(true));
   }, []);
 
+  useEffect(() => {
+    return () => {
+      analysisControllerRef.current?.abort();
+      coachControllerRef.current?.abort();
+    };
+  }, []);
+
   // Request AI Coach Advice
   const requestCoachAdvice = useCallback(
     async (state: GameState, analysisResult: EngineAnalysisResult | null) => {
+      coachControllerRef.current?.abort();
+      const controller = new AbortController();
+      coachControllerRef.current = controller;
       const seq = ++coachSeqRef.current;
       setIsCoachLoading(true);
       try {
@@ -99,6 +112,7 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
         const res = await fetch('/api/coach-explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             boardSize: state.boardSize,
             moveNumber: state.history.length,
@@ -124,6 +138,9 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
       } catch {
         // Silently keep previous advice or fallback
       } finally {
+        if (coachControllerRef.current === controller) {
+          coachControllerRef.current = null;
+        }
         if (seq === coachSeqRef.current) {
           setIsCoachLoading(false);
         }
@@ -135,6 +152,9 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
   // Analyze Board Position via KataGo API
   const requestAnalysis = useCallback(
     async (state: GameState, rank: Rank): Promise<EngineAnalysisResult | null> => {
+      analysisControllerRef.current?.abort();
+      const controller = new AbortController();
+      analysisControllerRef.current = controller;
       try {
         const movesPayload = state.history.map(m => ({
           color: m.color === BLACK ? ('B' as const) : ('W' as const),
@@ -146,6 +166,7 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
         const response = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             boardSize: state.boardSize,
             moves: movesPayload,
@@ -161,24 +182,39 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
         return result;
       } catch {
         return null;
+      } finally {
+        if (analysisControllerRef.current === controller) {
+          analysisControllerRef.current = null;
+        }
       }
     },
     []
   );
 
-  const resetAnalysis = useCallback(() => {
+  const cancelInflightRequests = useCallback(() => {
     analysisSeqRef.current++;
     coachSeqRef.current++;
+    analysisControllerRef.current?.abort();
+    coachControllerRef.current?.abort();
+    analysisControllerRef.current = null;
+    coachControllerRef.current = null;
+    setIsCoachLoading(false);
+  }, []);
+
+  const resetAnalysis = useCallback(() => {
+    cancelInflightRequests();
     setAnalysis(null);
     setCoachAdvice(null);
     setPreviewCandidateCoord(null);
     setPreviewPvCoords(null);
     setWinrateHistory([50]);
     setScoreLeadHistory([0]);
-  }, []);
+  }, [cancelInflightRequests]);
 
   const invalidateInflightAnalysis = useCallback(() => {
     analysisSeqRef.current++;
+    analysisControllerRef.current?.abort();
+    analysisControllerRef.current = null;
   }, []);
 
   return {
@@ -204,5 +240,6 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
     requestCoachAdvice,
     resetAnalysis,
     invalidateInflightAnalysis,
+    cancelInflightRequests,
   };
 }
